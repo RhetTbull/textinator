@@ -17,4 +17,5 @@ cli.spec
 docsrc/_build/
 venv/
 .python-version
-cov.xml.eggs/
+cov.xml
+.eggs/

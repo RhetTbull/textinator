@@ -9,13 +9,7 @@ from setuptools import setup
 
 APP = ["textinator.py"]
 DATA_FILES = ["icon.png"]
-OPTIONS = {
-    "argv_emulation": True,
-    "plist": {
-        "LSUIElement": True,
-    },
-    "packages": ["text_detection"],
-}
+OPTIONS = {}
 
 setup(
     app=APP,
