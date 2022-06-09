@@ -3,6 +3,9 @@
 Runs on Catalina (10.15) and later.
 """
 
+
+import contextlib
+import json
 from typing import List, Optional
 
 import objc
@@ -24,9 +27,13 @@ from Foundation import (
 )
 from wurlitzer import pipes
 
-
+APP_NAME = "Textinator"
 ICON = "icon.png"
+# default confidence threshold for text detection
 DEFAULT_CONFIDENCE = 0.5
+
+# where to store saved state, will reside in Application Support/APP_NAME
+CONFIG_FILE = "config.json"
 
 
 class Textinator(rumps.App):
@@ -34,9 +41,11 @@ class Textinator(rumps.App):
         super(Textinator, self).__init__(*args, **kwargs)
 
         self.icon = ICON
-        self.append = rumps.MenuItem("Append to Clipboard", callback=self.on_append)
+        self.load_config()
+
+        # menus
         self.confidence = rumps.MenuItem(
-            f"Text Detection Confidence Threshold: {DEFAULT_CONFIDENCE}"
+            f"Text Detection Confidence Threshold: {self.config['confidence_threshold']:.2f}",
         )
         self.confidence_slider = rumps.SliderMenuItem(
             value=DEFAULT_CONFIDENCE,
@@ -44,11 +53,24 @@ class Textinator(rumps.App):
             max_value=1,
             callback=self.on_confidence,
         )
+        self.append = rumps.MenuItem("Append to Clipboard", callback=self.on_append)
+        self.notification = rumps.MenuItem(
+            "Notification", callback=self.on_notification
+        )
         self.quit = rumps.MenuItem("Quit Textinator", callback=self.on_quit)
-        self.menu = [self.append, self.confidence, self.confidence_slider, self.quit]
+        self.menu = [
+            self.confidence,
+            self.confidence_slider,
+            self.append,
+            self.notification,
+            self.quit,
+        ]
 
         # append to Clipboard
-        self.append.state = False
+        self.append.state = self.config["append"]
+
+        # show notifications
+        self.notification.state = self.config["notification"]
 
         # holds all screenshots already seen
         self._screenshots = {}
@@ -56,27 +78,63 @@ class Textinator(rumps.App):
         # confidence threshold for text detection
         self.confidence_threshold = DEFAULT_CONFIDENCE
 
-        # Start the query
+        # Start the spotlight query
         self.start_query()
+
+    def load_config(self):
+        """Load config from JSON file in Application Support folder."""
+        self.config = {}
+        with contextlib.suppress(FileNotFoundError):
+            with self.open(CONFIG_FILE, "r") as f:
+                with contextlib.suppress(json.JSONDecodeError):
+                    self.config = json.load(f)
+        if not self.config:
+            # either file didn't exist yet or json decode failed
+            # initialize config with default values
+            self.config = {
+                "confidence_threshold": DEFAULT_CONFIDENCE,
+                "append": False,
+                "notification": True,
+            }
+            self.save_config()
+
+    def save_config(self):
+        """Write config to JSON file in Application Support folder."""
+        with self.open(CONFIG_FILE, "w+") as f:
+            json.dump(self.config, f)
+        print(f"Saved config: {self.config}")
 
     def on_append(self, sender):
         """Toggle append to clipboard."""
-        self.append.state = not self.append.state
+        sender.state = not sender.state
+        self.config["append"] = sender.state
+        self.save_config()
 
     def on_confidence(self, sender):
         """Change confidence threshold."""
         self.confidence.title = (
-            f"Text detection confidence threshold: {sender.value:.1f}"
+            f"Text detection confidence threshold: {sender.value:.2f}"
         )
-        self.confidence_threshold = sender.value
+        self.confidence_threshold = float(f"{sender.value:.2f}")
+        self.config["confidence_threshold"] = self.confidence_threshold
+        self.save_config()
+
+    def on_notification(self, sender):
+        """Toggle alert/notification"""
+        sender.state = not sender.state
+        self.config["notification"] = sender.state
+        self.save_config()
 
     def start_query(self):
         """Start the NSMetdataQuery Spotlight query."""
         self.query = NSMetadataQuery.alloc().init()
+
+        # screenshots all have kMDItemIsScreenCapture set
         self.query.setPredicate_(
             NSPredicate.predicateWithFormat_("kMDItemIsScreenCapture = 1")
         )
 
+        # configure the query to post notifications, which our queryUpdated method will handle
         nf = NSNotificationCenter.defaultCenter()
         nf.addObserver_selector_name_object_(
             self,
@@ -125,9 +183,16 @@ class Textinator(rumps.App):
             if text:
                 text = f"{pyperclip.paste()}\n{text}" if self.append.state else text
                 pyperclip.copy(text)
+                if self.notification.state:
+                    rumps.notification(
+                        title="Processed Screenshot",
+                        subtitle=f"{path}",
+                        message=f"Detected text: {text}",
+                    )
             self._screenshots[path] = text
 
     def queryUpdated_(self, notif):
+        """Receives and processes notifications from the Spotlight query"""
         if notif.name() == NSMetadataQueryDidStartGatheringNotification:
             # The query has just started
             NSLog("search: query started")
@@ -147,6 +212,8 @@ class Textinator(rumps.App):
 
 def detect_text(img_path: str, orientation: Optional[int] = None) -> List:
     """process image at img_path with VNRecognizeTextRequest and return list of results
+
+    This code is borrowed from https://github.com/RhetTbull/osxphotos
 
     Args:
         img_path: path to the image file
@@ -209,4 +276,4 @@ def make_request_handler(results):
 
 
 if __name__ == "__main__":
-    Textinator(name="Textinator", quit_button=None).run()
+    Textinator(name=APP_NAME, quit_button=None).run()
