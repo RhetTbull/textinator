@@ -1,10 +1,10 @@
-"""Simple MacOS status bar app automatically perform text detection on screenshots.
+"""Simple MacOS menu bar app automatically perform text detection on screenshots.
 
 Runs on Catalina (10.15) and later.
 """
 
-import plistlib
 import contextlib
+import plistlib
 from typing import List, Optional
 
 import objc
@@ -38,6 +38,7 @@ CONFIG_FILE = f"{APP_NAME}.plist"
 
 
 class Textinator(rumps.App):
+    """MacOS Menu Bar App to automatically perform text detection on screenshots."""
     def __init__(self, *args, **kwargs):
         super(Textinator, self).__init__(*args, **kwargs)
 
@@ -70,7 +71,7 @@ class Textinator(rumps.App):
             self.quit,
         ]
 
-        # load config from plist file
+        # load config from plist file and init menu state
         self.load_config()
 
         # holds all screenshots already seen
@@ -202,6 +203,7 @@ class Textinator(rumps.App):
                 "kMDItemPath"
             ).stringByResolvingSymlinksInPath()
             if path in self._screenshots:
+                # we've already seen this screenshot or screenshot existed at app startup, skip it
                 continue
             detected_text = detect_text(path)
             confidence = CONFIDENCE[self.get_confidence_state()]
@@ -210,9 +212,9 @@ class Textinator(rumps.App):
             )
 
             if text:
-                text = f"{pyperclip.paste()}\n{text}" if self.append.state else text
                 if not self.linebreaks.state:
                     text = text.replace("\n", " ")
+                text = f"{pyperclip.paste()}\n{text}" if self.append.state and pyperclip.paste() else text
                 NSLog(f"{APP_NAME} detected text: {text}")
                 pyperclip.copy(text)
                 if self.notification.state:
@@ -245,7 +247,7 @@ class Textinator(rumps.App):
 def detect_text(img_path: str, orientation: Optional[int] = None) -> List:
     """process image at img_path with VNRecognizeTextRequest and return list of results
 
-    This code is borrowed from https://github.com/RhetTbull/osxphotos
+    This code originally developed for https://github.com/RhetTbull/osxphotos
 
     Args:
         img_path: path to the image file
