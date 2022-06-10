@@ -10,7 +10,6 @@ t.out
 dist/
 build/
 working/
-osxphotos.egg-info/
 .mypy_cache/
 cli.spec
 *.pyc
