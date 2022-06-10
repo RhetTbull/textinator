@@ -39,6 +39,7 @@ CONFIG_FILE = f"{APP_NAME}.plist"
 
 class Textinator(rumps.App):
     """MacOS Menu Bar App to automatically perform text detection on screenshots."""
+
     def __init__(self, *args, **kwargs):
         super(Textinator, self).__init__(*args, **kwargs)
 
@@ -214,15 +215,21 @@ class Textinator(rumps.App):
             if text:
                 if not self.linebreaks.state:
                     text = text.replace("\n", " ")
-                text = f"{pyperclip.paste()}\n{text}" if self.append.state and pyperclip.paste() else text
+                text = (
+                    f"{pyperclip.paste()}\n{text}"
+                    if self.append.state and pyperclip.paste()
+                    else text
+                )
                 NSLog(f"{APP_NAME} detected text: {text}")
                 pyperclip.copy(text)
-                if self.notification.state:
-                    rumps.notification(
-                        title="Processed Screenshot",
-                        subtitle=f"{path}",
-                        message=f"Detected text: {text}",
-                    )
+            else:
+                NSLog(f"{APP_NAME} detected no text in {path}")
+            if self.notification.state:
+                rumps.notification(
+                    title="Processed Screenshot",
+                    subtitle=f"{path}",
+                    message=f"Detected text: {text}" if text else "No text detected",
+                )
             self._screenshots[path] = text
 
     def query_updated_(self, notif):
@@ -299,7 +306,7 @@ def make_request_handler(results):
 
     def handler(request, error):
         if error:
-            NSLog(f"Error! {error}")
+            NSLog(f"{APP_NAME} Error! {error}")
         else:
             observations = request.results()
             for text_observation in observations:
