@@ -3,9 +3,8 @@
 Runs on Catalina (10.15) and later.
 """
 
-
+import plistlib
 import contextlib
-import json
 from typing import List, Optional
 
 import objc
@@ -33,7 +32,7 @@ ICON = "icon.png"
 DEFAULT_CONFIDENCE = 0.5
 
 # where to store saved state, will reside in Application Support/APP_NAME
-CONFIG_FILE = "config.json"
+CONFIG_FILE = f"{APP_NAME}.plist"
 
 
 class Textinator(rumps.App):
@@ -82,14 +81,15 @@ class Textinator(rumps.App):
         self.start_query()
 
     def load_config(self):
-        """Load config from JSON file in Application Support folder."""
+        """Load config from plist file in Application Support folder."""
         self.config = {}
         with contextlib.suppress(FileNotFoundError):
-            with self.open(CONFIG_FILE, "r") as f:
-                with contextlib.suppress(json.JSONDecodeError):
-                    self.config = json.load(f)
+            with self.open(CONFIG_FILE, "rb") as f:
+                with contextlib.suppress(Exception):
+                    # don't crash if config file is malformed
+                    self.config = plistlib.load(f)
         if not self.config:
-            # either file didn't exist yet or json decode failed
+            # file didn't exist or was malformed, create a new one
             # initialize config with default values
             self.config = {
                 "confidence_threshold": DEFAULT_CONFIDENCE,
@@ -99,9 +99,9 @@ class Textinator(rumps.App):
             self.save_config()
 
     def save_config(self):
-        """Write config to JSON file in Application Support folder."""
-        with self.open(CONFIG_FILE, "w+") as f:
-            json.dump(self.config, f)
+        """Write config to plist file in Application Support folder."""
+        with self.open(CONFIG_FILE, "wb+") as f:
+            plistlib.dump(self.config, f)
         print(f"Saved config: {self.config}")
 
     def on_append(self, sender):
