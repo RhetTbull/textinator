@@ -27,9 +27,11 @@ from Foundation import (
 from wurlitzer import pipes
 
 APP_NAME = "Textinator"
-ICON = "icon.png"
+APP_ICON = "icon.png"
+
 # default confidence threshold for text detection
-DEFAULT_CONFIDENCE = 0.5
+CONFIDENCE = {"LOW": 0.3, "MEDIUM": 0.5, "HIGH": 0.8}
+CONFIDENCE_DEFAULT = "LOW"
 
 # where to store saved state, will reside in Application Support/APP_NAME
 CONFIG_FILE = f"{APP_NAME}.plist"
@@ -39,45 +41,42 @@ class Textinator(rumps.App):
     def __init__(self, *args, **kwargs):
         super(Textinator, self).__init__(*args, **kwargs)
 
-        self.icon = ICON
-        self.load_config()
+        self.icon = APP_ICON
 
         # menus
-        self.confidence = rumps.MenuItem(
-            f"Text Detection Confidence Threshold: {self.config['confidence_threshold']:.2f}",
-        )
-        self.confidence_slider = rumps.SliderMenuItem(
-            value=DEFAULT_CONFIDENCE,
-            min_value=0,
-            max_value=1,
-            callback=self.on_confidence,
-        )
-        self.append = rumps.MenuItem("Append to Clipboard", callback=self.on_append)
-        self.notification = rumps.MenuItem(
-            "Notification", callback=self.on_notification
+        self.confidence = rumps.MenuItem("Text detection confidence threshold")
+        self.confidence_low = rumps.MenuItem("Low", self.on_confidence)
+        self.confidence_medium = rumps.MenuItem("Medium", self.on_confidence)
+        self.confidence_high = rumps.MenuItem("High", self.on_confidence)
+        self.notification = rumps.MenuItem("Notification", callback=self.on_toggle)
+        self.linebreaks = rumps.MenuItem("Keep linebreaks", self.on_toggle)
+        self.append = rumps.MenuItem("Append to clipboard", callback=self.on_toggle)
+        self.clear_clipboard = rumps.MenuItem(
+            "Clear Clipboard", callback=self.on_clear_clipboard
         )
         self.quit = rumps.MenuItem("Quit Textinator", callback=self.on_quit)
         self.menu = [
-            self.confidence,
-            self.confidence_slider,
-            self.append,
+            [
+                self.confidence,
+                [self.confidence_low, self.confidence_medium, self.confidence_high],
+            ],
+            None,
             self.notification,
+            None,
+            self.linebreaks,
+            self.append,
+            self.clear_clipboard,
+            None,
             self.quit,
         ]
 
-        # append to Clipboard
-        self.append.state = self.config["append"]
-
-        # show notifications
-        self.notification.state = self.config["notification"]
+        # load config from plist file
+        self.load_config()
 
         # holds all screenshots already seen
         self._screenshots = {}
 
-        # confidence threshold for text detection
-        self.confidence_threshold = DEFAULT_CONFIDENCE
-
-        # Start the spotlight query
+        # start the spotlight query
         self.start_query()
 
     def load_config(self):
@@ -92,38 +91,71 @@ class Textinator(rumps.App):
             # file didn't exist or was malformed, create a new one
             # initialize config with default values
             self.config = {
-                "confidence_threshold": DEFAULT_CONFIDENCE,
+                "confidence": CONFIDENCE_DEFAULT,
+                "linebreaks": True,
                 "append": False,
                 "notification": True,
             }
-            self.save_config()
+        NSLog(f"{APP_NAME} loaded config: {self.config}")
+        self.append.state = self.config["append"]
+        self.linebreaks.state = self.config["linebreaks"]
+        self.notification.state = self.config["notification"]
+        self.set_confidence_state(self.config["confidence"])
+        self.save_config()
 
     def save_config(self):
         """Write config to plist file in Application Support folder."""
+        self.config["linebreaks"] = self.linebreaks.state
+        self.config["append"] = self.append.state
+        self.config["notification"] = self.notification.state
+        self.config["confidence"] = self.get_confidence_state()
         with self.open(CONFIG_FILE, "wb+") as f:
             plistlib.dump(self.config, f)
-        print(f"Saved config: {self.config}")
+        NSLog(f"{APP_NAME} saved config: {self.config}")
 
-    def on_append(self, sender):
-        """Toggle append to clipboard."""
+    def on_toggle(self, sender):
+        """Toggle sender state."""
         sender.state = not sender.state
-        self.config["append"] = sender.state
         self.save_config()
+
+    def on_clear_clipboard(self, sender):
+        """Clear the clipboard"""
+        pyperclip.copy("")
 
     def on_confidence(self, sender):
         """Change confidence threshold."""
-        self.confidence.title = (
-            f"Text detection confidence threshold: {sender.value:.2f}"
-        )
-        self.confidence_threshold = float(f"{sender.value:.2f}")
-        self.config["confidence_threshold"] = self.confidence_threshold
+        self.clear_confidence_state()
+        sender.state = True
         self.save_config()
 
-    def on_notification(self, sender):
-        """Toggle alert/notification"""
-        sender.state = not sender.state
-        self.config["notification"] = sender.state
-        self.save_config()
+    def clear_confidence_state(self):
+        """Clear confidence menu state"""
+        self.confidence_low.state = False
+        self.confidence_medium.state = False
+        self.confidence_high.state = False
+
+    def get_confidence_state(self):
+        """Get confidence threshold state."""
+        if self.confidence_low.state:
+            return "LOW"
+        elif self.confidence_medium.state:
+            return "MEDIUM"
+        elif self.confidence_high.state:
+            return "HIGH"
+        else:
+            return CONFIDENCE_DEFAULT
+
+    def set_confidence_state(self, confidence):
+        """Set confidence threshold state."""
+        self.clear_confidence_state()
+        if confidence == "LOW":
+            self.confidence_low.state = True
+        elif confidence == "MEDIUM":
+            self.confidence_medium.state = True
+        elif confidence == "HIGH":
+            self.confidence_high.state = True
+        else:
+            raise ValueError(f"Unknown confidence threshold: {confidence}")
 
     def start_query(self):
         """Start the NSMetdataQuery Spotlight query."""
@@ -138,7 +170,7 @@ class Textinator(rumps.App):
         nf = NSNotificationCenter.defaultCenter()
         nf.addObserver_selector_name_object_(
             self,
-            "queryUpdated:",
+            "query_updated:",
             None,
             self.query,
         )
@@ -171,17 +203,17 @@ class Textinator(rumps.App):
             ).stringByResolvingSymlinksInPath()
             if path in self._screenshots:
                 continue
-            NSLog(f"New screenshot: {path}")
             detected_text = detect_text(path)
-            NSLog(f"Detected text: {detected_text}")
+            confidence = CONFIDENCE[self.get_confidence_state()]
             text = "\n".join(
-                result[0]
-                for result in detected_text
-                if result[1] > self.confidence_threshold
+                result[0] for result in detected_text if result[1] >= confidence
             )
 
             if text:
                 text = f"{pyperclip.paste()}\n{text}" if self.append.state else text
+                if not self.linebreaks.state:
+                    text = text.replace("\n", " ")
+                NSLog(f"{APP_NAME} detected text: {text}")
                 pyperclip.copy(text)
                 if self.notification.state:
                     rumps.notification(
@@ -191,22 +223,22 @@ class Textinator(rumps.App):
                     )
             self._screenshots[path] = text
 
-    def queryUpdated_(self, notif):
+    def query_updated_(self, notif):
         """Receives and processes notifications from the Spotlight query"""
         if notif.name() == NSMetadataQueryDidStartGatheringNotification:
             # The query has just started
-            NSLog("search: query started")
+            NSLog(f"{APP_NAME} search: query started")
         elif notif.name() == NSMetadataQueryDidFinishGatheringNotification:
             # The query has just finished
             # log all results so we don't try to do text detection on previous screenshots
-            NSLog("search: finished gathering")
+            NSLog(f"{APP_NAME} search: finished gathering")
             self.initialize_screenshots(notif)
         elif notif.name() == NSMetadataQueryGatheringProgressNotification:
             # The query is still gathering results...
-            NSLog("search: gathering progress")
+            NSLog(f"{APP_NAME} search: gathering progress")
         elif notif.name() == NSMetadataQueryDidUpdateNotification:
             # There's a new result available
-            NSLog("search: an update happened.")
+            NSLog(f"{APP_NAME} search: an update happened.")
             self.process_screenshot(notif)
 
 
@@ -265,7 +297,7 @@ def make_request_handler(results):
 
     def handler(request, error):
         if error:
-            print(f"Error! {error}")
+            NSLog(f"Error! {error}")
         else:
             observations = request.results()
             for text_observation in observations:
