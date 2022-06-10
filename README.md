@@ -4,6 +4,8 @@ Simple macOS StatusBar / menu bar app to perform automatic text detection on scr
 
 ## Overview
 
+Install the app per [instructions](#installation) below.  Then, take a screenshot of a region of the screen using ⌘ + ⇧ + 4 (`Cmd + Shift + 4`).  The app will automatically detect any text in the screenshot and copy it to your clipboard.
+
 <!-- ![Textinator screenshot](textinator.png) -->
 
 ## Installation
