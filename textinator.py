@@ -168,7 +168,7 @@ class Textinator(rumps.App):
             NSPredicate.predicateWithFormat_("kMDItemIsScreenCapture = 1")
         )
 
-        # configure the query to post notifications, which our queryUpdated method will handle
+        # configure the query to post notifications, which our query_updated method will handle
         nf = NSNotificationCenter.defaultCenter()
         nf.addObserver_selector_name_object_(
             self,
@@ -188,7 +188,11 @@ class Textinator(rumps.App):
         rumps.quit_application()
 
     def initialize_screenshots(self, notif):
-        """Track all screenshots already seen or that existed on app startup."""
+        """Track all screenshots already seen or that existed on app startup.
+
+        The Spotlight query will return *all* screenshots on the computer so track those results
+        when returned and only process new screenshots.
+        """
         results = notif.object().results()
         for item in results:
             path = item.valueForAttribute_(
@@ -215,12 +219,12 @@ class Textinator(rumps.App):
             if text:
                 if not self.linebreaks.state:
                     text = text.replace("\n", " ")
+                NSLog(f"{APP_NAME} detected text: {text}")
                 text = (
                     f"{pyperclip.paste()}\n{text}"
                     if self.append.state and pyperclip.paste()
                     else text
                 )
-                NSLog(f"{APP_NAME} detected text: {text}")
                 pyperclip.copy(text)
             else:
                 NSLog(f"{APP_NAME} detected no text in {path}")
