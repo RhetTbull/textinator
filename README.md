@@ -14,6 +14,7 @@ Install the app per [instructions](#installation) below.  Then, take a screensho
 - cd into the repo directory
 - create a virtual environment and activate it
 - python3 -m pip install -r requirements.txt
+- python3 -m pip install -r requirements_dev.txt
 - python3 setup.py py2app
 - Copy dist/Textinator.app to /Applications
 
