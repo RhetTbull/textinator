@@ -21,6 +21,8 @@ Install the app per [instructions](#installation) below.  Then, take a screensho
 
 ![System Preferences > Security & Privacy](images/Full_Disk_Access.png)
 
+## Usage
+
 - Launch Textinator from the Applications folder
 - Click the menu bar icon to see preferences
 
@@ -28,15 +30,34 @@ Install the app per [instructions](#installation) below.  Then, take a screensho
 
 - Press ⌘ + ⇧ + 4 (`Cmd + Shift + 4`) to take a screenshot then paste the detected text wherever you'd like it to be.
 
+## Settings
+
+- `Text detection threshold confidence`: The confidence threshold for text detection.  The higher the value, the more accurate the text detection will be but a higher setting may result in some text not being detected (because the detected text was below the specified threshold). The default value is 'Low' which is equivalent to a [VNRecognizeTextRequest](https://developer.apple.com/documentation/vision/vnrecognizetextrequest?language=objc) confidence threshold of `0.3` (Medium = `0.5`, Migh = `0.8`).
+- `Notification`: Whether or not to show a notification when text is detected.
+- `Keep linebreaks`: Whether or not to keep linebreaks in the detected text; if not set, linebreaks will be stripped.
+- `Append to clipboard`: Append to the clipboard instead of overwriting it.
+- `Clear clipboard`: Clear the clipboard.
+
 ## Inspiration
 
 I heard [mikeckennedy](https://github.com/mikeckennedy) mention [Text Sniper](https://textsniper.app/) on [Python Bytes](https://pythonbytes.fm/) podcast [#284](https://pythonbytes.fm/episodes/show/284/spicy-git-for-engineers) and thought "That's neat! I bet I could make a clone in Python!" and here it is.  You should listen to Python Bytes if you don't already and you should go buy Text Sniper!
 
+This project took a few hours and the whole thing is ~200 lines of Python. It was fun to show that you can build a really useful macOS native app in just a little bit of Python.
+
+## How Textinator Works
+
+Textinator is built with [rumps (Ridiculously Uncomplicated macOS Python Statusbar apps)](https://github.com/jaredks/rumps) which is a python package for creating simple macOS Statusbar apps.
+
+At startup, Textinator starts a persistent [NSMetadataQuery Spotlight query](https://developer.apple.com/documentation/foundation/nsmetadataquery?language=objc) (using the [pyobjc](https://pyobjc.readthedocs.io/en/latest/) Python-to-Objective-C bridge) to detect when a new screenshot is created.
+
+When the user creates screenshot, the `NSMetadataQuery` query is fired and Textinator performs text detection using a [Vision](https://developer.apple.com/documentation/vision?language=objc) [VNRecognizeTextRequest](https://developer.apple.com/documentation/vision/vnrecognizetextrequest?language=objc) call.
+
 ## Notes
 
-* Doesn't work with python 3.10 as [rumps](https://github.com/jaredks/rumps) is currently not compatible with 3.10.
-* If building with [pyenv](https://github.com/pyenv/pyenv) installed python, you'll need to build the python with framework support:
-    * `env PYTHON_CONFIGURE_OPTS="--enable-framework" pyenv install -v 3.9.11`
+- Doesn't work with python 3.10 as [rumps](https://github.com/jaredks/rumps) is currently not compatible with 3.10.
+- If building with [pyenv](https://github.com/pyenv/pyenv) installed python, you'll need to build the python with framework support:
+    - `env PYTHON_CONFIGURE_OPTS="--enable-framework" pyenv install -v 3.9.11`
+- Requires a minimum of macOS Catalina (10.15).  Tested on macOS Catalina (10.15.7); should work on Catalina or newer.
 
 ## License
 
