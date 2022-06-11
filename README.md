@@ -23,8 +23,11 @@ Install the app per [instructions](#installation) below.  Then, take a screensho
 
 - Launch Textinator from the Applications folder
 - Click the menu bar icon to see preferences
+
+![Menu Bar Icon](images/textinator_settings.png)
+
 - Press ⌘ + ⇧ + 4 (`Cmd + Shift + 4`) to take a screenshot then paste the detected text wherever you'd like it to be.
- 
+
 ## Inspiration
 
 I heard [mikeckennedy](https://github.com/mikeckennedy) mention [Text Sniper](https://textsniper.app/) on [Python Bytes](https://pythonbytes.fm/) podcast [#284](https://pythonbytes.fm/episodes/show/284/spicy-git-for-engineers) and thought "That's neat! I bet I could make a clone in Python!" and here it is.  You should listen to Python Bytes if you don't already and you should go buy Text Sniper!
