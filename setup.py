@@ -10,9 +10,7 @@ from setuptools import setup
 APP = ["textinator.py"]
 DATA_FILES = ["icon.png"]
 OPTIONS = {
-    "plist": {
-        "LSUIElement": True,
-    },
+    "plist": {"LSUIElement": True},
 }
 
 setup(
