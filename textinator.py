@@ -4,8 +4,9 @@ Runs on Catalina (10.15) and later.
 """
 
 import contextlib
+import platform
 import plistlib
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import objc
 import pyperclip
@@ -26,6 +27,8 @@ from Foundation import (
 )
 from wurlitzer import pipes
 
+__version__ = "0.2.0"
+
 APP_NAME = "Textinator"
 APP_ICON = "icon.png"
 
@@ -45,23 +48,34 @@ class Textinator(rumps.App):
 
         self.icon = APP_ICON
 
+        # get list of supported languages for language menu
+        languages, _ = get_supported_vision_languages()
+        languages = languages or ["en-US"]
+        NSLog(f"{APP_NAME} supported languages: {languages}")
+        self.recognition_language = languages[0]
+
         # menus
         self.confidence = rumps.MenuItem("Text detection confidence threshold")
         self.confidence_low = rumps.MenuItem("Low", self.on_confidence)
         self.confidence_medium = rumps.MenuItem("Medium", self.on_confidence)
         self.confidence_high = rumps.MenuItem("High", self.on_confidence)
+        self.language = rumps.MenuItem("Text recognition language")
+        for language in languages:
+            self.language.add(rumps.MenuItem(language, self.on_language))
         self.notification = rumps.MenuItem("Notification", callback=self.on_toggle)
         self.linebreaks = rumps.MenuItem("Keep linebreaks", self.on_toggle)
         self.append = rumps.MenuItem("Append to clipboard", callback=self.on_toggle)
         self.clear_clipboard = rumps.MenuItem(
             "Clear Clipboard", callback=self.on_clear_clipboard
         )
-        self.quit = rumps.MenuItem("Quit Textinator", callback=self.on_quit)
+        self.about = rumps.MenuItem(f"About {APP_NAME}", callback=self.on_about)
+        self.quit = rumps.MenuItem(f"Quit {APP_NAME}", callback=self.on_quit)
         self.menu = [
             [
                 self.confidence,
                 [self.confidence_low, self.confidence_medium, self.confidence_high],
             ],
+            self.language,
             None,
             self.notification,
             None,
@@ -69,6 +83,7 @@ class Textinator(rumps.App):
             self.append,
             self.clear_clipboard,
             None,
+            self.about,
             self.quit,
         ]
 
@@ -97,12 +112,17 @@ class Textinator(rumps.App):
                 "linebreaks": True,
                 "append": False,
                 "notification": True,
+                "language": self.recognition_language,
             }
         NSLog(f"{APP_NAME} loaded config: {self.config}")
         self.append.state = self.config["append"]
         self.linebreaks.state = self.config["linebreaks"]
         self.notification.state = self.config["notification"]
         self.set_confidence_state(self.config["confidence"])
+        self.recognition_language = self.config.get(
+            "language", self.recognition_language
+        )
+        self.set_language_menu_state(self.recognition_language)
         self.save_config()
 
     def save_config(self):
@@ -111,9 +131,16 @@ class Textinator(rumps.App):
         self.config["append"] = self.append.state
         self.config["notification"] = self.notification.state
         self.config["confidence"] = self.get_confidence_state()
+        self.config["language"] = self.recognition_language
         with self.open(CONFIG_FILE, "wb+") as f:
             plistlib.dump(self.config, f)
         NSLog(f"{APP_NAME} saved config: {self.config}")
+
+    def on_language(self, sender):
+        """Change language."""
+        self.recognition_language = sender.title
+        self.set_language_menu_state(sender.title)
+        self.save_config()
 
     def on_toggle(self, sender):
         """Toggle sender state."""
@@ -159,6 +186,13 @@ class Textinator(rumps.App):
         else:
             raise ValueError(f"Unknown confidence threshold: {confidence}")
 
+    def set_language_menu_state(self, language):
+        """Set the language menu state"""
+        for item in self.language.values():
+            item.state = False
+            if item.title == language:
+                item.state = True
+
     def start_query(self):
         """Start the NSMetdataQuery Spotlight query."""
         self.query = NSMetadataQuery.alloc().init()
@@ -178,6 +212,18 @@ class Textinator(rumps.App):
         )
         self.query.setDelegate_(self)
         self.query.startQuery()
+
+    def on_about(self, sender):
+        """Display about dialog."""
+        rumps.alert(
+            title=f"About {APP_NAME}",
+            message=f"{APP_NAME} Version {__version__}\n\n"
+            f"{APP_NAME} is a simple utility to recognize text in screenshots.\n\n"
+            f"{APP_NAME} is open source and licensed under the MIT license.\n\n"
+            "Copyright 2022 by Rhet Turnbull\n"
+            "https://github.com/RhetTbull/textinator",
+            ok="OK",
+        )
 
     def on_quit(self, sender):
         """Cleanup before quitting."""
@@ -210,7 +256,7 @@ class Textinator(rumps.App):
             if path in self._screenshots:
                 # we've already seen this screenshot or screenshot existed at app startup, skip it
                 continue
-            detected_text = detect_text(path)
+            detected_text = detect_text(path, languages=[self.recognition_language])
             confidence = CONFIDENCE[self.get_confidence_state()]
             text = "\n".join(
                 result[0] for result in detected_text if result[1] >= confidence
@@ -255,7 +301,68 @@ class Textinator(rumps.App):
             self.process_screenshot(notif)
 
 
-def detect_text(img_path: str, orientation: Optional[int] = None) -> List:
+def get_mac_os_version():
+    # returns tuple of str containing OS version
+    # e.g. 10.13.6 = ("10", "13", "6")
+    version = platform.mac_ver()[0].split(".")
+    if len(version) == 2:
+        (ver, major) = version
+        minor = "0"
+    elif len(version) == 3:
+        (ver, major, minor) = version
+    else:
+        raise (
+            ValueError(
+                f"Could not parse version string: {platform.mac_ver()} {version}"
+            )
+        )
+
+    # python might return 10.16 instead of 11.0 for Big Sur and above
+    if ver == "10":
+        if major == "16":
+            ver = "11"
+            major = minor
+            minor = "0"
+        elif major == "17":
+            ver = "12"
+            major = minor
+            minor = "0"
+        elif major == "18":
+            ver = "13"
+            major = minor
+            minor = "0"
+
+    return (ver, major, minor)
+
+
+def get_supported_vision_languages() -> Tuple[Tuple[str], Tuple[str]]:
+    """Get supported languages for text detection from Vision framework.
+
+    Returns: Tuple of ((language code), (error))
+    """
+
+    revision = Vision.VNRecognizeTextRequestRevision1
+    if get_mac_os_version() >= ("11", "0", "0"):
+        revision = Vision.VNRecognizeTextRequestRevision2
+
+    if get_mac_os_version() < ("12", "0", "0"):
+        return Vision.VNRecognizeTextRequest.supportedRecognitionLanguagesForTextRecognitionLevel_revision_error_(
+            Vision.VNRequestTextRecognitionLevelAccurate, revision, None
+        )
+
+    results = []
+    handler = make_request_handler(results)
+    textRequest = Vision.VNRecognizeTextRequest.alloc().initWithCompletionHandler(
+        handler
+    )
+    return textRequest.supportedRecognitionLanguagesAndReturnError_(None)
+
+
+def detect_text(
+    img_path: str,
+    orientation: Optional[int] = None,
+    languages: Optional[List[str]] = None,
+) -> List:
     """process image at img_path with VNRecognizeTextRequest and return list of results
 
     This code originally developed for https://github.com/RhetTbull/osxphotos
@@ -263,6 +370,7 @@ def detect_text(img_path: str, orientation: Optional[int] = None) -> List:
     Args:
         img_path: path to the image file
         orientation: optional EXIF orientation (if known, passing orientation may improve quality of results)
+        languages: optional languages to use for text detection as list of ISO language code strings; default is ["en-US"]
     """
     with objc.autorelease_pool():
         input_url = NSURL.fileURLWithPath_(img_path)
@@ -293,6 +401,9 @@ def detect_text(img_path: str, orientation: Optional[int] = None) -> List:
         vision_request = (
             Vision.VNRecognizeTextRequest.alloc().initWithCompletionHandler_(handler)
         )
+        languages = languages or ["en-US"]
+        vision_request.setRecognitionLanguages_(languages)
+        vision_request.setUsesLanguageCorrection_(True)
         error = vision_handler.performRequests_error_([vision_request], None)
         vision_request.dealloc()
         vision_handler.dealloc()
