@@ -27,7 +27,7 @@ from Foundation import (
 )
 from wurlitzer import pipes
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 APP_NAME = "Textinator"
 APP_ICON = "icon.png"
@@ -62,14 +62,14 @@ class Textinator(rumps.App):
         self.language = rumps.MenuItem("Text recognition language")
         for language in languages:
             self.language.add(rumps.MenuItem(language, self.on_language))
-        self.notification = rumps.MenuItem("Notification", callback=self.on_toggle)
+        self.notification = rumps.MenuItem("Notification", self.on_toggle)
         self.linebreaks = rumps.MenuItem("Keep linebreaks", self.on_toggle)
-        self.append = rumps.MenuItem("Append to clipboard", callback=self.on_toggle)
+        self.append = rumps.MenuItem("Append to clipboard", self.on_toggle)
         self.clear_clipboard = rumps.MenuItem(
-            "Clear Clipboard", callback=self.on_clear_clipboard
+            "Clear Clipboard", self.on_clear_clipboard
         )
-        self.about = rumps.MenuItem(f"About {APP_NAME}", callback=self.on_about)
-        self.quit = rumps.MenuItem(f"Quit {APP_NAME}", callback=self.on_quit)
+        self.about = rumps.MenuItem(f"About {APP_NAME}", self.on_about)
+        self.quit = rumps.MenuItem(f"Quit {APP_NAME}", self.on_quit)
         self.menu = [
             [
                 self.confidence,
@@ -301,9 +301,8 @@ class Textinator(rumps.App):
             self.process_screenshot(notif)
 
 
-def get_mac_os_version():
-    # returns tuple of str containing OS version
-    # e.g. 10.13.6 = ("10", "13", "6")
+def get_mac_os_version() -> Tuple[str, str, str]:
+    """Returns tuple of str in form (version, major, minor) containing OS version, e.g. 10.13.6 = ("10", "13", "6")"""
     version = platform.mac_ver()[0].split(".")
     if len(version) == 2:
         (ver, major) = version
@@ -341,21 +340,22 @@ def get_supported_vision_languages() -> Tuple[Tuple[str], Tuple[str]]:
     Returns: Tuple of ((language code), (error))
     """
 
-    revision = Vision.VNRecognizeTextRequestRevision1
-    if get_mac_os_version() >= ("11", "0", "0"):
-        revision = Vision.VNRecognizeTextRequestRevision2
+    with objc.autorelease_pool():
+        revision = Vision.VNRecognizeTextRequestRevision1
+        if get_mac_os_version() >= ("11", "0", "0"):
+            revision = Vision.VNRecognizeTextRequestRevision2
 
-    if get_mac_os_version() < ("12", "0", "0"):
-        return Vision.VNRecognizeTextRequest.supportedRecognitionLanguagesForTextRecognitionLevel_revision_error_(
-            Vision.VNRequestTextRecognitionLevelAccurate, revision, None
+        if get_mac_os_version() < ("12", "0", "0"):
+            return Vision.VNRecognizeTextRequest.supportedRecognitionLanguagesForTextRecognitionLevel_revision_error_(
+                Vision.VNRequestTextRecognitionLevelAccurate, revision, None
+            )
+
+        results = []
+        handler = make_request_handler(results)
+        textRequest = Vision.VNRecognizeTextRequest.alloc().initWithCompletionHandler(
+            handler
         )
-
-    results = []
-    handler = make_request_handler(results)
-    textRequest = Vision.VNRecognizeTextRequest.alloc().initWithCompletionHandler(
-        handler
-    )
-    return textRequest.supportedRecognitionLanguagesAndReturnError_(None)
+        return textRequest.supportedRecognitionLanguagesAndReturnError_(None)
 
 
 def detect_text(
