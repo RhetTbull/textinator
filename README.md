@@ -65,4 +65,4 @@ MIT License
 
 ## See Also
 
-[Text Sniper](https://textsniper.app/) - You should buy this!
+[Text Sniper](https://textsniper.app/) which inspired this project.
