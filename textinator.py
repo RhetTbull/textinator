@@ -27,7 +27,7 @@ from Foundation import (
 )
 from wurlitzer import pipes
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 APP_NAME = "Textinator"
 APP_ICON = "icon.png"
@@ -35,6 +35,10 @@ APP_ICON = "icon.png"
 # default confidence threshold for text detection
 CONFIDENCE = {"LOW": 0.3, "MEDIUM": 0.5, "HIGH": 0.8}
 CONFIDENCE_DEFAULT = "LOW"
+
+# default language for text detection
+LANGUAGE_DEFAULT = "en-US"
+LANGUAGE_ENGLISH = "en-US"
 
 # where to store saved state, will reside in Application Support/APP_NAME
 CONFIG_FILE = f"{APP_NAME}.plist"
@@ -50,9 +54,11 @@ class Textinator(rumps.App):
 
         # get list of supported languages for language menu
         languages, _ = get_supported_vision_languages()
-        languages = languages or ["en-US"]
+        languages = languages or [LANGUAGE_DEFAULT]
         NSLog(f"{APP_NAME} supported languages: {languages}")
-        self.recognition_language = languages[0]
+        self.recognition_language = (
+            LANGUAGE_DEFAULT if LANGUAGE_DEFAULT in languages else languages[0]
+        )
 
         # menus
         self.confidence = rumps.MenuItem("Text detection confidence threshold")
@@ -62,6 +68,7 @@ class Textinator(rumps.App):
         self.language = rumps.MenuItem("Text recognition language")
         for language in languages:
             self.language.add(rumps.MenuItem(language, self.on_language))
+        self.language_english = rumps.MenuItem("Always detect English", self.on_toggle)
         self.notification = rumps.MenuItem("Notification", self.on_toggle)
         self.linebreaks = rumps.MenuItem("Keep linebreaks", self.on_toggle)
         self.append = rumps.MenuItem("Append to clipboard", self.on_toggle)
@@ -76,6 +83,7 @@ class Textinator(rumps.App):
                 [self.confidence_low, self.confidence_medium, self.confidence_high],
             ],
             self.language,
+            self.language_english,
             None,
             self.notification,
             None,
@@ -113,16 +121,18 @@ class Textinator(rumps.App):
                 "append": False,
                 "notification": True,
                 "language": self.recognition_language,
+                "always_detect_english": True,
             }
         NSLog(f"{APP_NAME} loaded config: {self.config}")
-        self.append.state = self.config["append"]
-        self.linebreaks.state = self.config["linebreaks"]
-        self.notification.state = self.config["notification"]
-        self.set_confidence_state(self.config["confidence"])
+        self.append.state = self.config.get("append", False)
+        self.linebreaks.state = self.config.get("linebreaks", True)
+        self.notification.state = self.config.get("notification", True)
+        self.set_confidence_state(self.config.get("confidence", CONFIDENCE_DEFAULT))
         self.recognition_language = self.config.get(
             "language", self.recognition_language
         )
         self.set_language_menu_state(self.recognition_language)
+        self.language_english.state = self.config.get("always_detect_english", True)
         self.save_config()
 
     def save_config(self):
@@ -132,6 +142,7 @@ class Textinator(rumps.App):
         self.config["notification"] = self.notification.state
         self.config["confidence"] = self.get_confidence_state()
         self.config["language"] = self.recognition_language
+        self.config["always_detect_english"] = self.language_english.state
         with self.open(CONFIG_FILE, "wb+") as f:
             plistlib.dump(self.config, f)
         NSLog(f"{APP_NAME} saved config: {self.config}")
@@ -256,7 +267,15 @@ class Textinator(rumps.App):
             if path in self._screenshots:
                 # we've already seen this screenshot or screenshot existed at app startup, skip it
                 continue
-            detected_text = detect_text(path, languages=[self.recognition_language])
+
+            # if "Always detect English" checked, add English to list of languages to detect
+            languages = (
+                [self.recognition_language, LANGUAGE_ENGLISH]
+                if self.language_english.state
+                and self.recognition_language != LANGUAGE_ENGLISH
+                else [self.recognition_language]
+            )
+            detected_text = detect_text(path, languages=languages)
             confidence = CONFIDENCE[self.get_confidence_state()]
             text = "\n".join(
                 result[0] for result in detected_text if result[1] >= confidence
