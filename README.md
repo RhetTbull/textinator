@@ -33,10 +33,14 @@ Install the app per [instructions](#installation) below.  Then, take a screensho
 ## Settings
 
 - `Text detection threshold confidence`: The confidence threshold for text detection.  The higher the value, the more accurate the text detection will be but a higher setting may result in some text not being detected (because the detected text was below the specified threshold). The default value is 'Low' which is equivalent to a [VNRecognizeTextRequest](https://developer.apple.com/documentation/vision/vnrecognizetextrequest?language=objc) confidence threshold of `0.3` (Medium = `0.5`, Migh = `0.8`).
+- `Text recognition language`: Select language for text recognition (languages listed by [ISO code](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) and are limited to those which your version of macOS supports).
+- `Always detect English`: If checked, always attempts to detect English text in addition to the primary language selected by `Text recognition language` setting.
 - `Notification`: Whether or not to show a notification when text is detected.
 - `Keep linebreaks`: Whether or not to keep linebreaks in the detected text; if not set, linebreaks will be stripped.
 - `Append to clipboard`: Append to the clipboard instead of overwriting it.
 - `Clear clipboard`: Clear the clipboard.
+- `About Textinator`: Show the about dialog.
+- `Quit Textinator`: Quit Textinator.
 
 ## Inspiration
 
