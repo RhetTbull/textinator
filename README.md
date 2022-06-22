@@ -10,12 +10,20 @@ Install the app per [instructions](#installation) below.  Then, take a screensho
 
 ## Installation
 
+Download and open the latest installer DMG from the [release](https://github.com/RhetTbull/textinator/releases) page then drag the Textinator icon to Applications and follow instructions below to grant Full Disk Access.
+
+![Installer DMG](images/installer.png)
+
+Alternatively, to build from source:
 - clone the repo
 - cd into the repo directory
 - create a virtual environment and activate it
 - python3 -m pip install -r requirements.txt
 - python3 setup.py py2app
 - Copy dist/textinator.app to /Applications
+- Follow instructions below to grant Full Disk Access
+
+Grant Full Disk Access:
 - Open System Preferences > Security & Privacy > Full Disk Access 
 - Click the padlock if locked to unlock it and add Textinator to the list of allowed apps
 
