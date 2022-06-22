@@ -10,7 +10,7 @@ Install the app per [instructions](#installation) below.  Then, take a screensho
 
 ## Installation
 
-Download and open the latest installer DMG from the [release](https://github.com/RhetTbull/textinator/releases) page then drag the Textinator icon to Applications and follow instructions below to grant Full Disk Access.
+Download and open the latest installer DMG from the [release](https://github.com/RhetTbull/textinator/releases) page then drag the Textinator icon to Applications and follow instructions below to grant Full Disk Access.  To launch Textinator the first time you'll need to right-click on the app icon and select "Open" otherwise you may get a warning about unknown developer as the app is not signed with an Apple Developer ID.
 
 ![Installer DMG](images/installer.png)
 
