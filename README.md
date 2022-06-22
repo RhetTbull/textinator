@@ -46,7 +46,7 @@ Install the app per [instructions](#installation) below.  Then, take a screensho
 
 I heard [mikeckennedy](https://github.com/mikeckennedy) mention [Text Sniper](https://textsniper.app/) on [Python Bytes](https://pythonbytes.fm/) podcast [#284](https://pythonbytes.fm/episodes/show/284/spicy-git-for-engineers) and thought "That's neat! I bet I could make a clone in Python!" and here it is.  You should listen to Python Bytes if you don't already and you should go buy Text Sniper!
 
-This project took a few hours and the whole thing is ~300 lines of Python. It was fun to show that you can build a really useful macOS native app in just a little bit of Python.
+This project took a few hours and the whole thing is a few hundred lines of Python. It was fun to show that you can build a really useful macOS native app in just a little bit of Python.
 
 ## How Textinator Works
 
