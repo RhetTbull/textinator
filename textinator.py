@@ -27,7 +27,7 @@ from Foundation import (
 )
 from wurlitzer import pipes
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 APP_NAME = "Textinator"
 APP_ICON = "icon.png"
@@ -69,6 +69,7 @@ class Textinator(rumps.App):
         for language in languages:
             self.language.add(rumps.MenuItem(language, self.on_language))
         self.language_english = rumps.MenuItem("Always detect English", self.on_toggle)
+        self.qrcodes = rumps.MenuItem("Detect QR codes", self.on_toggle)
         self.notification = rumps.MenuItem("Notification", self.on_toggle)
         self.linebreaks = rumps.MenuItem("Keep linebreaks", self.on_toggle)
         self.append = rumps.MenuItem("Append to clipboard", self.on_toggle)
@@ -84,6 +85,8 @@ class Textinator(rumps.App):
             ],
             self.language,
             self.language_english,
+            None,
+            self.qrcodes,
             None,
             self.notification,
             None,
@@ -122,6 +125,7 @@ class Textinator(rumps.App):
                 "notification": True,
                 "language": self.recognition_language,
                 "always_detect_english": True,
+                "detect_qrcodes": False,
             }
         NSLog(f"{APP_NAME} loaded config: {self.config}")
         self.append.state = self.config.get("append", False)
@@ -133,6 +137,7 @@ class Textinator(rumps.App):
         )
         self.set_language_menu_state(self.recognition_language)
         self.language_english.state = self.config.get("always_detect_english", True)
+        self.qrcodes.state = self.config.get("detect_qrcodes", False)
         self.save_config()
 
     def save_config(self):
@@ -143,6 +148,7 @@ class Textinator(rumps.App):
         self.config["confidence"] = self.get_confidence_state()
         self.config["language"] = self.recognition_language
         self.config["always_detect_english"] = self.language_english.state
+        self.config["detect_qrcodes"] = self.qrcodes.state
         with self.open(CONFIG_FILE, "wb+") as f:
             plistlib.dump(self.config, f)
         NSLog(f"{APP_NAME} saved config: {self.config}")
@@ -258,7 +264,7 @@ class Textinator(rumps.App):
             self._screenshots[path] = True
 
     def process_screenshot(self, notif):
-        """Process a new screenshot and detect text."""
+        """Process a new screenshot and detect text (and QR codes if requested)."""
         results = notif.object().results()
         for item in results:
             path = item.valueForAttribute_(
@@ -280,6 +286,15 @@ class Textinator(rumps.App):
             text = "\n".join(
                 result[0] for result in detected_text if result[1] >= confidence
             )
+
+            if self.qrcodes.state:
+                # Also detect QR codes and copy the text from the QR code payload
+                if detected_qrcodes := detect_qrcodes(path):
+                    text = (
+                        text + "\n" + "\n".join(detected_qrcodes)
+                        if text
+                        else "\n".join(detected_qrcodes)
+                    )
 
             if text:
                 if not self.linebreaks.state:
@@ -448,6 +463,30 @@ def make_request_handler(results):
                 results.append([recognized_text.string(), recognized_text.confidence()])
 
     return handler
+
+
+def detect_qrcodes(filepath: str) -> List[str]:
+    """Detect QR Codes in images using CIDetector and return text of the found QR Codes"""
+    with objc.autorelease_pool():
+        context = Quartz.CIContext.contextWithOptions_(None)
+        options = NSDictionary.dictionaryWithDictionary_(
+            {"CIDetectorAccuracy": Quartz.CIDetectorAccuracyHigh}
+        )
+        detector = Quartz.CIDetector.detectorOfType_context_options_(
+            Quartz.CIDetectorTypeQRCode, context, options
+        )
+
+        results = []
+        input_url = NSURL.fileURLWithPath_(filepath)
+        input_image = Quartz.CIImage.imageWithContentsOfURL_(input_url)
+        features = detector.featuresInImage_(input_image)
+
+        if not features:
+            return []
+        for idx in range(features.count()):
+            feature = features.objectAtIndex_(idx)
+            results.append(feature.messageString())
+        return results
 
 
 if __name__ == "__main__":
