@@ -15,6 +15,7 @@ Download and open the latest installer DMG from the [release](https://github.com
 ![Installer DMG](images/installer.png)
 
 Alternatively, to build from source:
+
 - clone the repo
 - cd into the repo directory
 - create a virtual environment and activate it
@@ -24,10 +25,15 @@ Alternatively, to build from source:
 - Follow instructions below to grant Full Disk Access
 
 Grant Full Disk Access:
-- Open System Preferences > Security & Privacy > Full Disk Access 
+
+- Open System Preferences > Security & Privacy > Full Disk Access
 - Click the padlock if locked to unlock it and add Textinator to the list of allowed apps
 
 ![System Preferences > Security & Privacy](images/Full_Disk_Access.png)
+
+## Upgrading
+
+To upgrade to the latest version, download the latest installer DMG from [releases](https://github.com/RhetTbull/textinator/releases) and drag the Textinator icon to Applications.  Then, you will need to remove Textinator from Full Disk access and re-add it per the instructions above. (This is a limitation of the macOS security model and not something Textinator can control.)
 
 ## Usage
 
@@ -68,7 +74,7 @@ When the user creates screenshot, the `NSMetadataQuery` query is fired and Texti
 
 - Doesn't work with python 3.10 as [rumps](https://github.com/jaredks/rumps) is currently not compatible with 3.10.
 - If building with [pyenv](https://github.com/pyenv/pyenv) installed python, you'll need to build the python with framework support:
-    - `env PYTHON_CONFIGURE_OPTS="--enable-framework" pyenv install -v 3.9.11`
+  - `env PYTHON_CONFIGURE_OPTS="--enable-framework" pyenv install -v 3.9.11`
 - Requires a minimum of macOS Catalina (10.15).  Tested on macOS Catalina (10.15.7) and Big Sur (11.6.4); should work on Catalina or newer.
 
 ## License
