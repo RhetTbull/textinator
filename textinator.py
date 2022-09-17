@@ -4,6 +4,7 @@ Runs on Catalina (10.15) and later.
 """
 
 import contextlib
+import datetime
 import platform
 import plistlib
 from typing import List, Optional, Tuple
@@ -27,7 +28,7 @@ from Foundation import (
 )
 from wurlitzer import pipes
 
-__version__ = "0.5.0"
+__version__ = "0.7.0"
 
 APP_NAME = "Textinator"
 APP_ICON = "icon.png"
@@ -43,6 +44,9 @@ LANGUAGE_ENGLISH = "en-US"
 # where to store saved state, will reside in Application Support/APP_NAME
 CONFIG_FILE = f"{APP_NAME}.plist"
 
+# optional logging to file (will always log to console via NSLog)
+LOG_FILE = f"{APP_NAME}.log"
+
 
 class Textinator(rumps.App):
     """MacOS Menu Bar App to automatically perform text detection on screenshots."""
@@ -50,12 +54,16 @@ class Textinator(rumps.App):
     def __init__(self, *args, **kwargs):
         super(Textinator, self).__init__(*args, **kwargs)
 
+        # set "debug" to true in the config file to enable debug logging
+        self._debug = False
+
         self.icon = APP_ICON
+        self.log("started")
 
         # get list of supported languages for language menu
         languages, _ = get_supported_vision_languages()
         languages = languages or [LANGUAGE_DEFAULT]
-        NSLog(f"{APP_NAME} supported languages: {languages}")
+        self.log(f"supported languages: {languages}")
         self.recognition_language = (
             LANGUAGE_DEFAULT if LANGUAGE_DEFAULT in languages else languages[0]
         )
@@ -107,6 +115,15 @@ class Textinator(rumps.App):
         # start the spotlight query
         self.start_query()
 
+    def log(self, msg: str):
+        """Log a message."""
+        NSLog(f"{APP_NAME} {__version__} {msg}")
+        # if debug set in config, also log to file
+        # file will be created in Application Support folder
+        if self._debug:
+            with self.open(LOG_FILE, "a") as f:
+                f.write(f"{datetime.datetime.now().isoformat()} - {msg}\n")
+
     def load_config(self):
         """Load config from plist file in Application Support folder."""
         self.config = {}
@@ -127,7 +144,7 @@ class Textinator(rumps.App):
                 "always_detect_english": True,
                 "detect_qrcodes": False,
             }
-        NSLog(f"{APP_NAME} loaded config: {self.config}")
+        self.log(f"loaded config: {self.config}")
         self.append.state = self.config.get("append", False)
         self.linebreaks.state = self.config.get("linebreaks", True)
         self.notification.state = self.config.get("notification", True)
@@ -138,6 +155,7 @@ class Textinator(rumps.App):
         self.set_language_menu_state(self.recognition_language)
         self.language_english.state = self.config.get("always_detect_english", True)
         self.qrcodes.state = self.config.get("detect_qrcodes", False)
+        self._debug = self.config.get("debug", False)
         self.save_config()
 
     def save_config(self):
@@ -149,9 +167,10 @@ class Textinator(rumps.App):
         self.config["language"] = self.recognition_language
         self.config["always_detect_english"] = self.language_english.state
         self.config["detect_qrcodes"] = self.qrcodes.state
+        self.config["debug"] = self._debug
         with self.open(CONFIG_FILE, "wb+") as f:
             plistlib.dump(self.config, f)
-        NSLog(f"{APP_NAME} saved config: {self.config}")
+        self.log(f"saved config: {self.config}")
 
     def on_language(self, sender):
         """Change language."""
@@ -299,7 +318,7 @@ class Textinator(rumps.App):
             if text:
                 if not self.linebreaks.state:
                     text = text.replace("\n", " ")
-                NSLog(f"{APP_NAME} detected text: {text}")
+                self.log(f"detected text: {text}")
                 text = (
                     f"{pyperclip.paste()}\n{text}"
                     if self.append.state and pyperclip.paste()
@@ -307,7 +326,7 @@ class Textinator(rumps.App):
                 )
                 pyperclip.copy(text)
             else:
-                NSLog(f"{APP_NAME} detected no text in {path}")
+                self.log(f"detected no text in {path}")
             if self.notification.state:
                 rumps.notification(
                     title="Processed Screenshot",
@@ -320,18 +339,18 @@ class Textinator(rumps.App):
         """Receives and processes notifications from the Spotlight query"""
         if notif.name() == NSMetadataQueryDidStartGatheringNotification:
             # The query has just started
-            NSLog(f"{APP_NAME} search: query started")
+            self.log("search: query started")
         elif notif.name() == NSMetadataQueryDidFinishGatheringNotification:
             # The query has just finished
             # log all results so we don't try to do text detection on previous screenshots
-            NSLog(f"{APP_NAME} search: finished gathering")
+            self.log("search: finished gathering")
             self.initialize_screenshots(notif)
         elif notif.name() == NSMetadataQueryGatheringProgressNotification:
             # The query is still gathering results...
-            NSLog(f"{APP_NAME} search: gathering progress")
+            self.log("search: gathering progress")
         elif notif.name() == NSMetadataQueryDidUpdateNotification:
             # There's a new result available
-            NSLog(f"{APP_NAME} search: an update happened.")
+            self.log("search: an update happened.")
             self.process_screenshot(notif)
 
 
