@@ -305,6 +305,8 @@ class Textinator(rumps.App):
                 # we've already seen this screenshot or screenshot existed at app startup, skip it
                 continue
 
+            self.log(f"processing new screenshot: {path}")
+
             # if "Always detect English" checked, add English to list of languages to detect
             languages = (
                 [self.recognition_language, LANGUAGE_ENGLISH]
