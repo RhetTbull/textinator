@@ -32,7 +32,7 @@ Textinator works by monitoring the file system for new screenshots. The macOS se
 
 ![Desktop access](images/textinator_desktop_access.png)
 
-The default location for new screenshots on your Mac is the Desktop folder so Desktop access should be sufficient in most cases. If you want Textinator to detect screenshots in other locations or if you have changed the default location for new screenshots, you will need to grant Full Disk Access.
+The default location for new screenshots on your Mac is the Desktop folder so Desktop access should be sufficient in most cases. If you want Textinator to detect screenshots in other locations or if you have [changed the default location for new screenshots](https://support.apple.com/en-us/HT201361), you will need to grant Full Disk Access.
 
 Grant Full Disk Access:
 
