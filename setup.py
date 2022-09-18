@@ -11,7 +11,13 @@ APP = ["textinator.py"]
 DATA_FILES = ["icon.png"]
 OPTIONS = {
     "iconfile": "icon.icns",
-    "plist": {"LSUIElement": True},
+    "plist": {
+        "LSUIElement": True,
+        "NSDesktopFolderUsageDescription": "Textinator needs access to your Desktop folder to detect new screenshots. "
+        "If you have changed the default location for screenshots, "
+        "you will also need to grant Textinator full disk access in "
+        "System Preferences > Security & Privacy > Privacy > Full Disk Access.",
+    },
 }
 
 setup(

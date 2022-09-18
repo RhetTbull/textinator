@@ -10,7 +10,9 @@ Install the app per [instructions](#installation) below.  Then, take a screensho
 
 ## Installation
 
-Download and open the latest installer DMG from the [release](https://github.com/RhetTbull/textinator/releases) page then drag the Textinator icon to Applications and follow instructions below to grant Full Disk Access.  To launch Textinator the first time you'll need to right-click on the app icon and select "Open" otherwise you may get a warning about unknown developer as the app is not signed with an Apple Developer ID.
+Download and open the latest installer DMG from the [release](https://github.com/RhetTbull/textinator/releases) page then drag the Textinator icon to Applications and follow instructions below to grant Desktop access and optionally grant Full Disk Access.  
+
+To launch Textinator the first time you'll need to right-click on the app icon and select "Open" otherwise you may get a warning about unknown developer as the app is not signed with an Apple Developer ID.
 
 ![Installer DMG](images/installer.png)
 
@@ -22,7 +24,15 @@ Alternatively, to build from source:
 - python3 -m pip install -r requirements.txt
 - python3 setup.py py2app
 - Copy dist/textinator.app to /Applications
-- Follow instructions below to grant Full Disk Access
+- Follow instructions below to grant Desktop and optionally Full Disk Access
+
+Grant Desktop access:
+
+Textinator works by monitoring the file system for new screenshots. The macOS security model prevents apps from accessing files and folders without the user's explicit permission. The first time you launch Textinator, you will be prompted to grant it access to your Desktop.
+
+![Desktop access](images/textinator_desktop_access.png)
+
+The default location for new screenshots on your Mac is the Desktop folder so Desktop access should be sufficient in most cases. If you want Textinator to detect screenshots in other locations or if you have changed the default location for new screenshots, you will need to grant Full Disk Access.
 
 Grant Full Disk Access:
 
@@ -33,11 +43,12 @@ Grant Full Disk Access:
 
 ## Upgrading
 
-To upgrade to the latest version, download the latest installer DMG from [releases](https://github.com/RhetTbull/textinator/releases) and drag the Textinator icon to Applications.  Then, you will need to remove Textinator from Full Disk access and re-add it per the instructions above. (This is a limitation of the macOS security model and not something Textinator can control.)
+To upgrade to the latest version, download the latest installer DMG from [releases](https://github.com/RhetTbull/textinator/releases) and drag the Textinator icon to Applications.  If you have previously granted Textinator Full Disk Access, you will need to remove Textinator from Full Disk Access and re-add it per the instructions above. (This is a limitation of the macOS security model and not something Textinator can control.)
 
 ## Usage
 
 - Launch Textinator from the Applications folder
+- Grant Desktop access if prompted
 - Click the menu bar icon to see preferences
 
 ![Menu Bar Icon](images/textinator_settings.png)

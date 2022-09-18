@@ -5,6 +5,7 @@ Runs on Catalina (10.15) and later.
 
 import contextlib
 import datetime
+import os
 import platform
 import plistlib
 from typing import List, Optional, Tuple
@@ -16,7 +17,10 @@ import rumps
 import Vision
 from Cocoa import NSURL
 from Foundation import (
+    NSURL,
+    NSDesktopDirectory,
     NSDictionary,
+    NSFileManager,
     NSLog,
     NSMetadataQuery,
     NSMetadataQueryDidFinishGatheringNotification,
@@ -25,6 +29,7 @@ from Foundation import (
     NSMetadataQueryGatheringProgressNotification,
     NSNotificationCenter,
     NSPredicate,
+    NSUserDomainMask,
 )
 from wurlitzer import pipes
 
@@ -44,7 +49,7 @@ LANGUAGE_ENGLISH = "en-US"
 # where to store saved state, will reside in Application Support/APP_NAME
 CONFIG_FILE = f"{APP_NAME}.plist"
 
-# optional logging to file (will always log to console via NSLog)
+# optional logging to file if debug enabled (will always log to console via NSLog)
 LOG_FILE = f"{APP_NAME}.log"
 
 
@@ -112,12 +117,18 @@ class Textinator(rumps.App):
         # holds all screenshots already seen
         self._screenshots = {}
 
+        # Need to verify access to the Desktop folder which is the default location for screenshots
+        # When this is called for the first time, the user will be prompted to grant access
+        # and shown the message assigned to NSDesktopFolderUsageDescription in the Info.plist file
+        verify_desktop_access()
+
         # start the spotlight query
         self.start_query()
 
     def log(self, msg: str):
-        """Log a message."""
+        """Log a message to unified log."""
         NSLog(f"{APP_NAME} {__version__} {msg}")
+
         # if debug set in config, also log to file
         # file will be created in Application Support folder
         if self._debug:
@@ -263,6 +274,7 @@ class Textinator(rumps.App):
 
     def on_quit(self, sender):
         """Cleanup before quitting."""
+        self.log("quitting")
         NSNotificationCenter.defaultCenter().removeObserver_(self)
         self.query.stopQuery()
         self.query.setDelegate_(None)
@@ -354,6 +366,32 @@ class Textinator(rumps.App):
             self.process_screenshot(notif)
 
 
+def verify_desktop_access():
+    """Verify that the app has access to the user's Desktop
+
+    If the App has NSDesktopFolderUsageDescription set in Info.plist,
+    user will be prompted to grant Desktop access the first time this is run.
+
+    Returns: True if access is granted, False otherwise.
+    """
+    with objc.autorelease_pool():
+        (
+            desktop_url,
+            error,
+        ) = NSFileManager.defaultManager().URLForDirectory_inDomain_appropriateForURL_create_error_(
+            NSDesktopDirectory, NSUserDomainMask, None, False, None
+        )
+        if error:
+            return False
+        (
+            desktop_files,
+            error,
+        ) = NSFileManager.defaultManager().contentsOfDirectoryAtURL_includingPropertiesForKeys_options_error_(
+            desktop_url, [], 0, None
+        )
+        return not error
+
+
 def get_mac_os_version() -> Tuple[str, str, str]:
     """Returns tuple of str in form (version, major, minor) containing OS version, e.g. 10.13.6 = ("10", "13", "6")"""
     version = platform.mac_ver()[0].split(".")
@@ -370,19 +408,10 @@ def get_mac_os_version() -> Tuple[str, str, str]:
         )
 
     # python might return 10.16 instead of 11.0 for Big Sur and above
-    if ver == "10":
-        if major == "16":
-            ver = "11"
-            major = minor
-            minor = "0"
-        elif major == "17":
-            ver = "12"
-            major = minor
-            minor = "0"
-        elif major == "18":
-            ver = "13"
-            major = minor
-            minor = "0"
+    if ver == "10" and int(major) >= 16:
+        ver = str(11 + int(major) - 16)
+        major = minor
+        minor = "0"
 
     return (ver, major, minor)
 
