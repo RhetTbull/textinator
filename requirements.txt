@@ -7,4 +7,3 @@ pyobjc-framework-vision==8.5; python_version >= "3.6"
 pyperclip==1.8.2
 rumps==0.3.0
 wheel==0.37.1
-wurlitzer==3.0.2; python_version >= "3.5"
