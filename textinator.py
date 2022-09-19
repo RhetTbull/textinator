@@ -14,7 +14,6 @@ import pyperclip
 import Quartz
 import rumps
 import Vision
-from Cocoa import NSURL
 from Foundation import (
     NSURL,
     NSDesktopDirectory,
