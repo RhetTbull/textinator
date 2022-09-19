@@ -1,11 +1,10 @@
-"""Simple MacOS menu bar app automatically perform text detection on screenshots.
+"""Simple MacOS menu bar / status bar app that automatically perform text detection on screenshots.
 
 Runs on Catalina (10.15) and later.
 """
 
 import contextlib
 import datetime
-import os
 import platform
 import plistlib
 from typing import List, Optional, Tuple
@@ -31,9 +30,8 @@ from Foundation import (
     NSPredicate,
     NSUserDomainMask,
 )
-from wurlitzer import pipes
 
-__version__ = "0.7.0"
+__version__ = "0.7.2"
 
 APP_NAME = "Textinator"
 APP_ICON = "icon.png"
@@ -332,7 +330,10 @@ class Textinator(rumps.App):
             if text:
                 if not self.linebreaks.state:
                     text = text.replace("\n", " ")
-                self.log(f"detected text: {text}")
+                # Note: only log the fact that text was detected, not the text itself
+                # as sometimes the mere fact of logging certain text causes the process to hang
+                # I have no idea why this happens but it's reproducible
+                self.log(f"detected text in {path}")
                 text = (
                     f"{pyperclip.paste()}\n{text}"
                     if self.append.state and pyperclip.paste()
@@ -459,13 +460,8 @@ def detect_text(
     with objc.autorelease_pool():
         input_url = NSURL.fileURLWithPath_(img_path)
 
-        with pipes() as (out, err):
-            # capture stdout and stderr from system calls
-            # otherwise, Quartz.CIImage.imageWithContentsOfURL_
-            # prints to stderr something like:
-            # 2020-09-20 20:55:25.538 python[73042:5650492] Creating client/daemon connection: B8FE995E-3F27-47F4-9FA8-559C615FD774
-            # 2020-09-20 20:55:25.652 python[73042:5650492] Got the query meta data reply for: com.apple.MobileAsset.RawCamera.Camera, response: 0
-            input_image = Quartz.CIImage.imageWithContentsOfURL_(input_url)
+        # create a CIIImage from the image at img_path as that's what Vision wantsß
+        input_image = Quartz.CIImage.imageWithContentsOfURL_(input_url)
 
         vision_options = NSDictionary.dictionaryWithDictionary_({})
         if orientation is None:
@@ -488,9 +484,9 @@ def detect_text(
         languages = languages or ["en-US"]
         vision_request.setRecognitionLanguages_(languages)
         vision_request.setUsesLanguageCorrection_(True)
-        error = vision_handler.performRequests_error_([vision_request], None)
-        vision_request.dealloc()
-        vision_handler.dealloc()
+        success, error = vision_handler.performRequests_error_([vision_request], None)
+        if not success:
+            raise ValueError(f"Vision request failed: {error}")
 
         for result in results:
             result[0] = str(result[0])
