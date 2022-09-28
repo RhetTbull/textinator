@@ -60,18 +60,26 @@ To upgrade to the latest version, download the latest installer DMG from [releas
 - `Text detection threshold confidence`: The confidence threshold for text detection.  The higher the value, the more accurate the text detection will be but a higher setting may result in some text not being detected (because the detected text was below the specified threshold). The default value is 'Low' which is equivalent to a [VNRecognizeTextRequest](https://developer.apple.com/documentation/vision/vnrecognizetextrequest?language=objc) confidence threshold of `0.3` (Medium = `0.5`, Migh = `0.8`).
 - `Text recognition language`: Select language for text recognition (languages listed by [ISO code](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) and are limited to those which your version of macOS supports).
 - `Always detect English`: If checked, always attempts to detect English text in addition to the primary language selected by `Text recognition language` setting.
+- `Detect QR Codes`: In addition to detecting text, also detect QR codes and copy the decoded payload text to the clipboard.
 - `Notification`: Whether or not to show a notification when text is detected.
 - `Keep linebreaks`: Whether or not to keep linebreaks in the detected text; if not set, linebreaks will be stripped.
 - `Append to clipboard`: Append to the clipboard instead of overwriting it.
 - `Clear clipboard`: Clear the clipboard.
+- `Start Textinator on login`: Add Textinator to the Login Items list so it will launch automatically when you login. This will cause Textinator to prompt for permission to send AppleScript events to the System Events app (see screnshot below).
 - `About Textinator`: Show the about dialog.
 - `Quit Textinator`: Quit Textinator.
+
+When you first select `Start Textinator on login`, you will be prompted to allow Textinator to send AppleScript events to the System Events app.  This is required to add Textinator to the Login Items list. The screenshot below shows the prompt you will see.
+
+![System Events permission](images/system_events_access.png)
 
 ## Inspiration
 
 I heard [mikeckennedy](https://github.com/mikeckennedy) mention [Text Sniper](https://textsniper.app/) on [Python Bytes](https://pythonbytes.fm/) podcast [#284](https://pythonbytes.fm/episodes/show/284/spicy-git-for-engineers) and thought "That's neat! I bet I could make a clone in Python!" and here it is.  You should listen to Python Bytes if you don't already and you should go buy Text Sniper!
 
 This project took a few hours and the whole thing is a few hundred lines of Python. It was fun to show that you can build a really useful macOS native app in just a little bit of Python.
+
+Textinator was featured on [Talk Python to Me](https://www.youtube.com/watch?v=ndFFgJhrUhQ&t=810s)! Thanks [Michael Kennedy](https://twitter.com/mkennedy) for hosting me!
 
 ## How Textinator Works
 

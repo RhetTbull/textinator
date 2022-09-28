@@ -3,19 +3,32 @@
 # Build, sign and package Textinator as a DMG file for release
 # this requires create-dmg: `brew install create-dmg` to install
 
-#   --background "installer_background.png" \
-
 # build with py2app
 echo "Running py2app"
 test -d dist && rm -rf dist/
 test -d build && rm -rf build/
 python setup.py py2app
 
-# sign with adhoc certificate
+# sign with ad-hoc certificate (if you have an Apple Developer ID, you can use your developer certificate instead)
+# for the app to send AppleEvents to other apps, it needs to be signed and include the
+# com.apple.security.automation.apple-events entitlement in the entitlements file
+# --force: force signing even if the app is already signed
+# --deep: recursively sign all embedded frameworks and plugins
+# --options=runtime: Preserve the hardened runtime version
+# --entitlements: use specified the entitlements file
+# -s -: sign the code at the path(s) given using this identity; "-" means use the ad-hoc certificate
 echo "Signing with codesign"
-codesign --force --deep -s - dist/Textinator.app
+codesign \
+  --force \
+  --deep \
+  --options=runtime \
+  --entitlements=script.entitlements entitlements.plist \
+  -s - \
+  dist/Textinator.app
 
 # create installer DMG
+# to add a background image to the DMG, add the following to the create-dmg command:
+#   --background "installer_background.png" \
 echo "Creating DMG"
 test -f Textinator-Installer.dmg && rm Textinator-Installer.dmg
 create-dmg \

@@ -1,3 +1,4 @@
+py-applescript==1.0.3 
 py2app==0.28.2
 pyobjc-core==8.5; python_version >= "3.6"
 pyobjc-framework-cocoa==8.5; python_version >= "3.6"

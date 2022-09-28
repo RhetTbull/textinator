@@ -5,10 +5,12 @@ Runs on Catalina (10.15) and later.
 
 import contextlib
 import datetime
+import os
 import platform
 import plistlib
 from typing import List, Optional, Tuple
 
+import applescript
 import objc
 import pyperclip
 import Quartz
@@ -16,6 +18,7 @@ import rumps
 import Vision
 from Foundation import (
     NSURL,
+    NSBundle,
     NSDesktopDirectory,
     NSDictionary,
     NSFileManager,
@@ -30,7 +33,7 @@ from Foundation import (
     NSUserDomainMask,
 )
 
-__version__ = "0.7.2"
+__version__ = "0.8.0"
 
 APP_NAME = "Textinator"
 APP_ICON = "icon.png"
@@ -86,6 +89,9 @@ class Textinator(rumps.App):
         self.clear_clipboard = rumps.MenuItem(
             "Clear Clipboard", self.on_clear_clipboard
         )
+        self.start_on_login = rumps.MenuItem(
+            f"Start {APP_NAME} on login", self.on_start_on_login
+        )
         self.about = rumps.MenuItem(f"About {APP_NAME}", self.on_about)
         self.quit = rumps.MenuItem(f"Quit {APP_NAME}", self.on_quit)
         self.menu = [
@@ -104,6 +110,7 @@ class Textinator(rumps.App):
             self.append,
             self.clear_clipboard,
             None,
+            self.start_on_login,
             self.about,
             self.quit,
         ]
@@ -118,6 +125,8 @@ class Textinator(rumps.App):
         # When this is called for the first time, the user will be prompted to grant access
         # and shown the message assigned to NSDesktopFolderUsageDescription in the Info.plist file
         verify_desktop_access()
+
+        self.log(__file__)
 
         # start the spotlight query
         self.start_query()
@@ -151,6 +160,7 @@ class Textinator(rumps.App):
                 "language": self.recognition_language,
                 "always_detect_english": True,
                 "detect_qrcodes": False,
+                "start_on_login": False,
             }
         self.log(f"loaded config: {self.config}")
         self.append.state = self.config.get("append", False)
@@ -164,6 +174,7 @@ class Textinator(rumps.App):
         self.language_english.state = self.config.get("always_detect_english", True)
         self.qrcodes.state = self.config.get("detect_qrcodes", False)
         self._debug = self.config.get("debug", False)
+        self.start_on_login.state = self.config.get("start_on_login", False)
         self.save_config()
 
     def save_config(self):
@@ -176,6 +187,7 @@ class Textinator(rumps.App):
         self.config["always_detect_english"] = self.language_english.state
         self.config["detect_qrcodes"] = self.qrcodes.state
         self.config["debug"] = self._debug
+        self.config["start_on_login"] = self.start_on_login.state
         with self.open(CONFIG_FILE, "wb+") as f:
             plistlib.dump(self.config, f)
         self.log(f"saved config: {self.config}")
@@ -256,6 +268,20 @@ class Textinator(rumps.App):
         )
         self.query.setDelegate_(self)
         self.query.startQuery()
+
+    def on_start_on_login(self, sender):
+        """Configure app to start on login or toggle this setting."""
+        self.start_on_login.state = not self.start_on_login.state
+        if self.start_on_login.state:
+            app_path = get_app_path()
+            self.log(f"adding app to login items with path {app_path}")
+            if APP_NAME not in list_login_items():
+                add_login_item(APP_NAME, app_path, hidden=False)
+        else:
+            self.log("removing app from login items")
+            if APP_NAME in list_login_items():
+                remove_login_item(APP_NAME)
+        self.save_config()
 
     def on_about(self, sender):
         """Display about dialog."""
@@ -532,6 +558,42 @@ def detect_qrcodes(filepath: str) -> List[str]:
             feature = features.objectAtIndex_(idx)
             results.append(feature.messageString())
         return results
+
+
+def get_app_path() -> str:
+    """Return path to the bundle containing this script"""
+    # Note: This must be called from an app bundle built with py2app or you'll get
+    # the path of the python interpreter instead of the actual app
+    return NSBundle.mainBundle().bundlePath()
+
+
+# The following functions are used to manipulate the Login Items list in System Preferences
+# To use these, your app must include the com.apple.security.automation.apple-events entitlement
+# in its entitlements file during signing and must have the NSAppleEventsUsageDescription key in
+# its Info.plist file
+# These functions use AppleScript to interact with System Preferences. I know of no other way to
+# do this programmatically from Python.  If you know of a better way, please let me know!
+
+
+def add_login_item(app_name: str, app_path: str, hidden: bool = False):
+    """Add app to login items"""
+    scpt = (
+        'tell application "System Events" to make login item at end with properties '
+        + f'{{name:"{app_name}", path:"{app_path}", hidden:{"true" if hidden else "false"}}}'
+    )
+    applescript.AppleScript(scpt).run()
+
+
+def remove_login_item(app_name: str):
+    """Remove app from login items"""
+    scpt = f'tell application "System Events" to delete login item "{app_name}"'
+    applescript.AppleScript(scpt).run()
+
+
+def list_login_items() -> List[str]:
+    """Return list of login items"""
+    scpt = 'tell application "System Events" to get the name of every login item'
+    return applescript.AppleScript(scpt).run()
 
 
 if __name__ == "__main__":
