@@ -336,17 +336,20 @@ class Textinator(rumps.App):
 
     def process_screenshot(self, notif):
         """Process a new screenshot and detect text (and QR codes if requested)."""
-        if self._paused:
-            self.log("text detection paused, skipping processing")
-            return
-
         results = notif.object().results()
         for item in results:
             path = item.valueForAttribute_(
                 "kMDItemPath"
             ).stringByResolvingSymlinksInPath()
+
             if path in self._screenshots:
                 # we've already seen this screenshot or screenshot existed at app startup, skip it
+                continue
+
+            if self._paused:
+                # don't process screenshots if paused
+                self.log(f"skipping screenshot because app is paused: {path}")
+                self._screenshots[path] = "__SKIPPED__"
                 continue
 
             self.log(f"processing new screenshot: {path}")
