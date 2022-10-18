@@ -483,7 +483,7 @@ def get_supported_vision_languages() -> Tuple[Tuple[str], Tuple[str]]:
 
         results = []
         handler = make_request_handler(results)
-        textRequest = Vision.VNRecognizeTextRequest.alloc().initWithCompletionHandler(
+        textRequest = Vision.VNRecognizeTextRequest.alloc().initWithCompletionHandler_(
             handler
         )
         return textRequest.supportedRecognitionLanguagesAndReturnError_(None)
