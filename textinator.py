@@ -33,7 +33,7 @@ from Foundation import (
     NSUserDomainMask,
 )
 
-__version__ = "0.8.0"
+__version__ = "0.8.1"
 
 APP_NAME = "Textinator"
 APP_ICON = "icon.png"
