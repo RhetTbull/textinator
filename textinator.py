@@ -37,6 +37,7 @@ __version__ = "0.8.0"
 
 APP_NAME = "Textinator"
 APP_ICON = "icon.png"
+APP_ICON_PAUSED = "icon_paused.png"
 
 # default confidence threshold for text detection
 CONFIDENCE = {"LOW": 0.3, "MEDIUM": 0.5, "HIGH": 0.8}
@@ -62,6 +63,9 @@ class Textinator(rumps.App):
         # set "debug" to true in the config file to enable debug logging
         self._debug = False
 
+        # pause / resume text detection
+        self._paused = False
+
         self.icon = APP_ICON
         self.log("started")
 
@@ -83,6 +87,7 @@ class Textinator(rumps.App):
             self.language.add(rumps.MenuItem(language, self.on_language))
         self.language_english = rumps.MenuItem("Always detect English", self.on_toggle)
         self.qrcodes = rumps.MenuItem("Detect QR codes", self.on_toggle)
+        self.pause = rumps.MenuItem("Pause text detection", self.on_pause)
         self.notification = rumps.MenuItem("Notification", self.on_toggle)
         self.linebreaks = rumps.MenuItem("Keep linebreaks", self.on_toggle)
         self.append = rumps.MenuItem("Append to clipboard", self.on_toggle)
@@ -101,6 +106,7 @@ class Textinator(rumps.App):
             ],
             self.language,
             self.language_english,
+            self.pause,
             None,
             self.qrcodes,
             None,
@@ -197,6 +203,17 @@ class Textinator(rumps.App):
         self.recognition_language = sender.title
         self.set_language_menu_state(sender.title)
         self.save_config()
+
+    def on_pause(self, sender):
+        """Pause/resume text detection."""
+        if self._paused:
+            self._paused = False
+            self.icon = APP_ICON
+            sender.title = "Pause text detection"
+        else:
+            self._paused = True
+            self.icon = APP_ICON_PAUSED
+            sender.title = "Resume text detection"
 
     def on_toggle(self, sender):
         """Toggle sender state."""
@@ -319,6 +336,10 @@ class Textinator(rumps.App):
 
     def process_screenshot(self, notif):
         """Process a new screenshot and detect text (and QR codes if requested)."""
+        if self._paused:
+            self.log("text detection paused, skipping processing")
+            return
+
         results = notif.object().results()
         for item in results:
             path = item.valueForAttribute_(

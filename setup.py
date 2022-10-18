@@ -8,7 +8,7 @@ Usage:
 from setuptools import setup
 
 APP = ["textinator.py"]
-DATA_FILES = ["icon.png"]
+DATA_FILES = ["icon.png", "icon_paused.png"]
 OPTIONS = {
     "iconfile": "icon.icns",
     "plist": {
