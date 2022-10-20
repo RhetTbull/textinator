@@ -7,8 +7,19 @@ Usage:
 
 from setuptools import setup
 
-APP = ["textinator.py"]
-DATA_FILES = ["icon.png", "icon_paused.png"]
+APP = ["src/textinator.py"]
+
+# Include additional python modules here; probably not the best way to do this
+# but I couldn't figure out how else to get py2app to include modules in the src/ folder
+DATA_FILES = [
+    "src/icon.png",
+    "src/icon_paused.png",
+    "src/loginitems.py",
+    "src/macvision.py",
+    "src/pasteboard.py",
+    "src/utils.py",
+]
+
 OPTIONS = {
     "iconfile": "icon.icns",
     "plist": {

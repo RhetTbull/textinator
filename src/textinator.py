@@ -5,23 +5,10 @@ Runs on Catalina (10.15) and later.
 
 import contextlib
 import datetime
-import os
-import platform
 import plistlib
-from typing import List, Optional, Tuple
 
-import applescript
-import objc
-import pyperclip
-import Quartz
 import rumps
-import Vision
 from Foundation import (
-    NSURL,
-    NSBundle,
-    NSDesktopDirectory,
-    NSDictionary,
-    NSFileManager,
     NSLog,
     NSMetadataQuery,
     NSMetadataQueryDidFinishGatheringNotification,
@@ -30,8 +17,12 @@ from Foundation import (
     NSMetadataQueryGatheringProgressNotification,
     NSNotificationCenter,
     NSPredicate,
-    NSUserDomainMask,
 )
+
+from loginitems import add_login_item, list_login_items, remove_login_item
+from macvision import detect_qrcodes, detect_text, get_supported_vision_languages
+from pasteboard import Pasteboard
+from utils import get_app_path, verify_desktop_access
 
 __version__ = "0.8.2"
 
@@ -52,6 +43,9 @@ CONFIG_FILE = f"{APP_NAME}.plist"
 
 # optional logging to file if debug enabled (will always log to console via NSLog)
 LOG_FILE = f"{APP_NAME}.log"
+
+# how often (in seconds) to check for new screenshots on the clipboard
+PASTEBOARD_CHECK_INTERVAL = 2
 
 
 class Textinator(rumps.App):
@@ -133,6 +127,10 @@ class Textinator(rumps.App):
         verify_desktop_access()
 
         self.log(__file__)
+
+        # initialize pasteboard watcher
+        # these will be used by pasteboard_watcher() to detect changes to the pasteboard
+        self.pasteboard = Pasteboard()
 
         # start the spotlight query
         self.start_query()
@@ -222,7 +220,10 @@ class Textinator(rumps.App):
 
     def on_clear_clipboard(self, sender):
         """Clear the clipboard"""
-        pyperclip.copy("")
+        self.pasteboard.clear()
+        # ZZZ replace pyperclip with a self.clipboard_clear, self.clipboard_copy, self.clipboard_paste
+        # or Clipboard class with those methods
+        # that auto update the pasteboard_count
 
     def on_confidence(self, sender):
         """Change confidence threshold."""
@@ -383,12 +384,10 @@ class Textinator(rumps.App):
                 # as sometimes the mere fact of logging certain text causes the process to hang
                 # I have no idea why this happens but it's reproducible
                 self.log(f"detected text in {path}")
-                text = (
-                    f"{pyperclip.paste()}\n{text}"
-                    if self.append.state and pyperclip.paste()
-                    else text
-                )
-                pyperclip.copy(text)
+                if self.append.state and self.pasteboard.has_text():
+                    self.pasteboard.append(f"\n{text}")
+                else:
+                    self.pasteboard.copy(text)
             else:
                 self.log(f"detected no text in {path}")
             if self.notification.state:
@@ -417,207 +416,17 @@ class Textinator(rumps.App):
             self.log("search: an update happened.")
             self.process_screenshot(notif)
 
+    @rumps.timer(PASTEBOARD_CHECK_INTERVAL)
+    def pasteboard_watcher(self, sender):
+        """Watch the pasteboard (clipboard) for changes"""
+        if self.pasteboard.has_changed() and self.pasteboard.has_image():
+            # image is on the pasteboard, process it
+            self.log("image on pasteboard")
+            self.process_clipboard_image()
 
-def verify_desktop_access():
-    """Verify that the app has access to the user's Desktop
-
-    If the App has NSDesktopFolderUsageDescription set in Info.plist,
-    user will be prompted to grant Desktop access the first time this is run.
-
-    Returns: True if access is granted, False otherwise.
-    """
-    with objc.autorelease_pool():
-        (
-            desktop_url,
-            error,
-        ) = NSFileManager.defaultManager().URLForDirectory_inDomain_appropriateForURL_create_error_(
-            NSDesktopDirectory, NSUserDomainMask, None, False, None
-        )
-        if error:
-            return False
-        (
-            desktop_files,
-            error,
-        ) = NSFileManager.defaultManager().contentsOfDirectoryAtURL_includingPropertiesForKeys_options_error_(
-            desktop_url, [], 0, None
-        )
-        return not error
-
-
-def get_mac_os_version() -> Tuple[str, str, str]:
-    """Returns tuple of str in form (version, major, minor) containing OS version, e.g. 10.13.6 = ("10", "13", "6")"""
-    version = platform.mac_ver()[0].split(".")
-    if len(version) == 2:
-        (ver, major) = version
-        minor = "0"
-    elif len(version) == 3:
-        (ver, major, minor) = version
-    else:
-        raise (
-            ValueError(
-                f"Could not parse version string: {platform.mac_ver()} {version}"
-            )
-        )
-
-    # python might return 10.16 instead of 11.0 for Big Sur and above
-    if ver == "10" and int(major) >= 16:
-        ver = str(11 + int(major) - 16)
-        major = minor
-        minor = "0"
-
-    return (ver, major, minor)
-
-
-def get_supported_vision_languages() -> Tuple[Tuple[str], Tuple[str]]:
-    """Get supported languages for text detection from Vision framework.
-
-    Returns: Tuple of ((language code), (error))
-    """
-
-    with objc.autorelease_pool():
-        revision = Vision.VNRecognizeTextRequestRevision1
-        if get_mac_os_version() >= ("11", "0", "0"):
-            revision = Vision.VNRecognizeTextRequestRevision2
-
-        if get_mac_os_version() < ("12", "0", "0"):
-            return Vision.VNRecognizeTextRequest.supportedRecognitionLanguagesForTextRecognitionLevel_revision_error_(
-                Vision.VNRequestTextRecognitionLevelAccurate, revision, None
-            )
-
-        results = []
-        handler = make_request_handler(results)
-        textRequest = Vision.VNRecognizeTextRequest.alloc().initWithCompletionHandler_(
-            handler
-        )
-        return textRequest.supportedRecognitionLanguagesAndReturnError_(None)
-
-
-def detect_text(
-    img_path: str,
-    orientation: Optional[int] = None,
-    languages: Optional[List[str]] = None,
-) -> List:
-    """process image at img_path with VNRecognizeTextRequest and return list of results
-
-    This code originally developed for https://github.com/RhetTbull/osxphotos
-
-    Args:
-        img_path: path to the image file
-        orientation: optional EXIF orientation (if known, passing orientation may improve quality of results)
-        languages: optional languages to use for text detection as list of ISO language code strings; default is ["en-US"]
-    """
-    with objc.autorelease_pool():
-        input_url = NSURL.fileURLWithPath_(img_path)
-
-        # create a CIIImage from the image at img_path as that's what Vision wantsß
-        input_image = Quartz.CIImage.imageWithContentsOfURL_(input_url)
-
-        vision_options = NSDictionary.dictionaryWithDictionary_({})
-        if orientation is None:
-            vision_handler = (
-                Vision.VNImageRequestHandler.alloc().initWithCIImage_options_(
-                    input_image, vision_options
-                )
-            )
-        elif 1 <= orientation <= 8:
-            vision_handler = Vision.VNImageRequestHandler.alloc().initWithCIImage_orientation_options_(
-                input_image, orientation, vision_options
-            )
-        else:
-            raise ValueError("orientation must be between 1 and 8")
-        results = []
-        handler = make_request_handler(results)
-        vision_request = (
-            Vision.VNRecognizeTextRequest.alloc().initWithCompletionHandler_(handler)
-        )
-        languages = languages or ["en-US"]
-        vision_request.setRecognitionLanguages_(languages)
-        vision_request.setUsesLanguageCorrection_(True)
-        success, error = vision_handler.performRequests_error_([vision_request], None)
-        if not success:
-            raise ValueError(f"Vision request failed: {error}")
-
-        for result in results:
-            result[0] = str(result[0])
-
-        return results
-
-
-def make_request_handler(results):
-    """results: list to store results"""
-    if not isinstance(results, list):
-        raise ValueError("results must be a list")
-
-    def handler(request, error):
-        if error:
-            NSLog(f"{APP_NAME} Error! {error}")
-        else:
-            observations = request.results()
-            for text_observation in observations:
-                recognized_text = text_observation.topCandidates_(1)[0]
-                results.append([recognized_text.string(), recognized_text.confidence()])
-
-    return handler
-
-
-def detect_qrcodes(filepath: str) -> List[str]:
-    """Detect QR Codes in images using CIDetector and return text of the found QR Codes"""
-    with objc.autorelease_pool():
-        context = Quartz.CIContext.contextWithOptions_(None)
-        options = NSDictionary.dictionaryWithDictionary_(
-            {"CIDetectorAccuracy": Quartz.CIDetectorAccuracyHigh}
-        )
-        detector = Quartz.CIDetector.detectorOfType_context_options_(
-            Quartz.CIDetectorTypeQRCode, context, options
-        )
-
-        results = []
-        input_url = NSURL.fileURLWithPath_(filepath)
-        input_image = Quartz.CIImage.imageWithContentsOfURL_(input_url)
-        features = detector.featuresInImage_(input_image)
-
-        if not features:
-            return []
-        for idx in range(features.count()):
-            feature = features.objectAtIndex_(idx)
-            results.append(feature.messageString())
-        return results
-
-
-def get_app_path() -> str:
-    """Return path to the bundle containing this script"""
-    # Note: This must be called from an app bundle built with py2app or you'll get
-    # the path of the python interpreter instead of the actual app
-    return NSBundle.mainBundle().bundlePath()
-
-
-# The following functions are used to manipulate the Login Items list in System Preferences
-# To use these, your app must include the com.apple.security.automation.apple-events entitlement
-# in its entitlements file during signing and must have the NSAppleEventsUsageDescription key in
-# its Info.plist file
-# These functions use AppleScript to interact with System Preferences. I know of no other way to
-# do this programmatically from Python.  If you know of a better way, please let me know!
-
-
-def add_login_item(app_name: str, app_path: str, hidden: bool = False):
-    """Add app to login items"""
-    scpt = (
-        'tell application "System Events" to make login item at end with properties '
-        + f'{{name:"{app_name}", path:"{app_path}", hidden:{"true" if hidden else "false"}}}'
-    )
-    applescript.AppleScript(scpt).run()
-
-
-def remove_login_item(app_name: str):
-    """Remove app from login items"""
-    scpt = f'tell application "System Events" to delete login item "{app_name}"'
-    applescript.AppleScript(scpt).run()
-
-
-def list_login_items() -> List[str]:
-    """Return list of login items"""
-    scpt = 'tell application "System Events" to get the name of every login item'
-    return applescript.AppleScript(scpt).run()
+    def process_clipboard_image(self):
+        """Process the image on the clipboard."""
+        ...
 
 
 if __name__ == "__main__":
