@@ -1,4 +1,4 @@
-"""Utilities for working with Login Items on macOS."""
+"""Utilities for working with System Preferences > Users & Groups > Login Items on macOS."""
 
 import applescript
 from typing import List
