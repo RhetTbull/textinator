@@ -5,4 +5,5 @@ pyobjc-framework-cocoa>=8.5.1;
 pyobjc-framework-coreml>=8.5.1
 pyobjc-framework-quartz>=8.5.1
 pyobjc-framework-vision>=8.5.1
+rumps==0.4.0
 wheel==0.37.1

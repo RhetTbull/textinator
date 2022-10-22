@@ -94,7 +94,6 @@ When the user creates screenshot, the `NSMetadataQuery` query is fired and Texti
 
 ## Notes
 
-- Doesn't work with python 3.10 as [rumps](https://github.com/jaredks/rumps) is currently not compatible with 3.10.
 - If building with [pyenv](https://github.com/pyenv/pyenv) installed python, you'll need to build the python with framework support:
   - `env PYTHON_CONFIGURE_OPTS="--enable-framework" pyenv install -v 3.9.11`
 - Requires a minimum of macOS Catalina (10.15).  Tested on macOS Catalina (10.15.7) and Big Sur (11.6.4); should work on Catalina or newer.
