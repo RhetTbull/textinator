@@ -58,18 +58,23 @@ To upgrade to the latest version, download the latest installer DMG from [releas
 
 - Press ⌘ + ⇧ + 4 (`Cmd + Shift + 4`) to take a screenshot then paste the detected text wherever you'd like it to be.
 
-- Textinator can also monitor the clipboard for changes which means you can also copy an image from any app or press Control + ⌘ + ⇧ + 4 (`Ctrl + Cmd + Shift + 4`) to take a screenshot and copy it to the clipboard without creating a screenshot file. Textinator will then detect any text in the image and copy it to the clipboard, overwriting the copied image.
+- Textinator can also monitor the clipboard for changes which means you can also copy an image from any app or press Control + ⌘ + ⇧ + 4 (`Ctrl + Cmd + Shift + 4`) to take a screenshot and copy it to the clipboard without creating a screenshot file. Textinator will then detect any text in the image and copy it to the clipboard, overwriting the copied image. This feature can be disabled by unchecking the "Detect text in images on clipboard" checkbox in the menu.
+
+- You can also use Textinator from the [Services menu](https://macreports.com/what-is-the-services-menu-in-macos/) in Finder.
 
 ## Settings
 
 - `Text detection threshold confidence`: The confidence threshold for text detection.  The higher the value, the more accurate the text detection will be but a higher setting may result in some text not being detected (because the detected text was below the specified threshold). The default value is 'Low' which is equivalent to a [VNRecognizeTextRequest](https://developer.apple.com/documentation/vision/vnrecognizetextrequest?language=objc) confidence threshold of `0.3` (Medium = `0.5`, Migh = `0.8`).
 - `Text recognition language`: Select language for text recognition (languages listed by [ISO code](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) and are limited to those which your version of macOS supports).
 - `Always detect English`: If checked, always attempts to detect English text in addition to the primary language selected by `Text recognition language` setting.
+- `Detect text in images on clipboard`: If checked, Textinator will monitor the clipboard for changes and detect any text in any images copied to the clipboard.  This feature can be disabled by unchecking the "Detect text in images on clipboard" checkbox in the menu.
+- `Pause text detection`: If checked, Textinator will not detect text in screenshots or images copied to the clipboard. If paused, the menu bar icon will change and the menu will show `Resume text detection` instead of `Pause text detection`.
 - `Detect QR Codes`: In addition to detecting text, also detect QR codes and copy the decoded payload text to the clipboard.
 - `Notification`: Whether or not to show a notification when text is detected.
 - `Keep linebreaks`: Whether or not to keep linebreaks in the detected text; if not set, linebreaks will be stripped.
 - `Append to clipboard`: Append to the clipboard instead of overwriting it.
 - `Clear clipboard`: Clear the clipboard.
+- `Confirm clipboard changes`: Show a confirmation dialog with detected text before copying to the clipboard.
 - `Start Textinator on login`: Add Textinator to the Login Items list so it will launch automatically when you login. This will cause Textinator to prompt for permission to send AppleScript events to the System Events app (see screnshot below).
 - `About Textinator`: Show the about dialog.
 - `Quit Textinator`: Quit Textinator.
@@ -131,3 +136,41 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
 This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
+
+## Developer Notes
+
+If you want to build Textinator yourself, here are some notes:
+
+Install requirements via pip:
+
+`python3 -m pip install -r requirements.txt`
+
+Building the DMG for distribution requires [create-dmg](https://github.com/create-dmg/create-dmg) which can be installed with [homebrew](https://brew.sh/):
+
+`brew install create-dmg`
+
+To build Textinator, run the `build.sh` script:
+
+`./build.sh`
+
+This script cleans out old build files, builds the app with [py2app](https://py2app.readthedocs.io/en/latest/), signs the app, and builds the DMG.
+
+Textinator stores it's preferences in `~/Library/Application\ Support/Textinator/Textinator.plist`. This is non-standard (by convention, apps store their preferences in `~/Library/Preferences/`), but RUMPS doesn't provide a method to access the Preferences folder and it does provide a method to access the Application Support folder (`rumps.App.open()`), so I went with that.
+
+The preferences can be read from the command line with:
+
+`defaults read ~/Library/Application\ Support/Textinator/Textinator.plist`
+
+For development and debugging it may be helpful to enable the debug log by setting `debug=1` in `Textinator.plist`.  You can do this from the command line with:
+
+`defaults write ~/Library/Application\ Support/Textinator/Textinator.plist debug -bool true`
+
+Similarly, you can disable the debug log with:
+
+`defaults write ~/Library/Application\ Support/Textinator/Textinator.plist debug -bool false`
+
+When `debug` is enabled, Textinator will log to `~/Library/Application\ Support/Textinator/Textinator.log`. I find this more convenient than using the macOS Console app.  Textinator will always log to the Console log as well so you can use Console if you prefer and filter on `Textinator`.
+
+Most features of the app can be tested by simply running the `textinator.py` script: `python3 src/textinator.py`.  The `Services menu` feature requires the app be built and installed because it needs runtime access to information in the app bundle's `Info.plist` which is built by `py2app`.
+
+I've tried to document the code well so that you can use Textinator as a template for your own apps. Some of the features (such as creating a Services menu item) are not well documented (especially with respect to doing these things in python) and took me a lot of trial and error to figure out. I hope that this project will help others who want to build macOS native apps in python.

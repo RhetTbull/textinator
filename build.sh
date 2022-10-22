@@ -4,9 +4,11 @@
 # this requires create-dmg: `brew install create-dmg` to install
 
 # build with py2app
-echo "Running py2app"
+echo "Cleaning up old build files..."
 test -d dist && rm -rf dist/
 test -d build && rm -rf build/
+
+echo "Running py2app"
 python setup.py py2app
 
 # sign with ad-hoc certificate (if you have an Apple Developer ID, you can use your developer certificate instead)
