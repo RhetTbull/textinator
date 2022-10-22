@@ -5,23 +5,11 @@ Runs on Catalina (10.15) and later.
 
 import contextlib
 import datetime
-import os
-import platform
 import plistlib
-from typing import List, Optional, Tuple
 
-import applescript
-import objc
-import pyperclip
 import Quartz
 import rumps
-import Vision
 from Foundation import (
-    NSURL,
-    NSBundle,
-    NSDesktopDirectory,
-    NSDictionary,
-    NSFileManager,
     NSLog,
     NSMetadataQuery,
     NSMetadataQueryDidFinishGatheringNotification,
@@ -30,8 +18,19 @@ from Foundation import (
     NSMetadataQueryGatheringProgressNotification,
     NSNotificationCenter,
     NSPredicate,
-    NSUserDomainMask,
 )
+
+from loginitems import add_login_item, list_login_items, remove_login_item
+from macvision import (
+    ciimage_from_file,
+    detect_qrcodes_in_ciimage,
+    detect_qrcodes_in_file,
+    detect_text_in_ciimage,
+    detect_text_in_file,
+    get_supported_vision_languages,
+)
+from pasteboard import Pasteboard, TIFF
+from utils import get_app_path, verify_desktop_access
 
 __version__ = "0.8.2"
 
@@ -52,6 +51,9 @@ CONFIG_FILE = f"{APP_NAME}.plist"
 
 # optional logging to file if debug enabled (will always log to console via NSLog)
 LOG_FILE = f"{APP_NAME}.log"
+
+# how often (in seconds) to check for new screenshots on the clipboard
+CLIPBOARD_CHECK_INTERVAL = 2
 
 
 class Textinator(rumps.App):
@@ -86,6 +88,9 @@ class Textinator(rumps.App):
         for language in languages:
             self.language.add(rumps.MenuItem(language, self.on_language))
         self.language_english = rumps.MenuItem("Always detect English", self.on_toggle)
+        self.detect_clipboard = rumps.MenuItem(
+            "Detect text in images on clipboard", self.on_toggle
+        )
         self.qrcodes = rumps.MenuItem("Detect QR codes", self.on_toggle)
         self.pause = rumps.MenuItem("Pause text detection", self.on_pause)
         self.notification = rumps.MenuItem("Notification", self.on_toggle)
@@ -94,6 +99,7 @@ class Textinator(rumps.App):
         self.clear_clipboard = rumps.MenuItem(
             "Clear Clipboard", self.on_clear_clipboard
         )
+        self.confirmation = rumps.MenuItem("Confirm clipboard changes", self.on_toggle)
         self.start_on_login = rumps.MenuItem(
             f"Start {APP_NAME} on login", self.on_start_on_login
         )
@@ -106,6 +112,7 @@ class Textinator(rumps.App):
             ],
             self.language,
             self.language_english,
+            self.detect_clipboard,
             self.pause,
             None,
             self.qrcodes,
@@ -115,6 +122,7 @@ class Textinator(rumps.App):
             self.linebreaks,
             self.append,
             self.clear_clipboard,
+            self.confirmation,
             None,
             self.start_on_login,
             self.about,
@@ -133,6 +141,10 @@ class Textinator(rumps.App):
         verify_desktop_access()
 
         self.log(__file__)
+
+        # This will be used by clipboard_watcher() to detect changes to the pasteboard
+        # (which everyone but Apple calls the clipboard)
+        self.pasteboard = Pasteboard()
 
         # start the spotlight query
         self.start_query()
@@ -167,6 +179,8 @@ class Textinator(rumps.App):
                 "always_detect_english": True,
                 "detect_qrcodes": False,
                 "start_on_login": False,
+                "confirmation": False,
+                "detect_clipboard": True,
             }
         self.log(f"loaded config: {self.config}")
         self.append.state = self.config.get("append", False)
@@ -178,6 +192,8 @@ class Textinator(rumps.App):
         )
         self.set_language_menu_state(self.recognition_language)
         self.language_english.state = self.config.get("always_detect_english", True)
+        self.detect_clipboard.state = self.config.get("detect_clipboard", True)
+        self.confirmation.state = self.config.get("confirmation", False)
         self.qrcodes.state = self.config.get("detect_qrcodes", False)
         self._debug = self.config.get("debug", False)
         self.start_on_login.state = self.config.get("start_on_login", False)
@@ -191,6 +207,8 @@ class Textinator(rumps.App):
         self.config["confidence"] = self.get_confidence_state()
         self.config["language"] = self.recognition_language
         self.config["always_detect_english"] = self.language_english.state
+        self.config["detect_clipboard"] = self.detect_clipboard.state
+        self.config["confirmation"] = self.confirmation.state
         self.config["detect_qrcodes"] = self.qrcodes.state
         self.config["debug"] = self._debug
         self.config["start_on_login"] = self.start_on_login.state
@@ -222,7 +240,10 @@ class Textinator(rumps.App):
 
     def on_clear_clipboard(self, sender):
         """Clear the clipboard"""
-        pyperclip.copy("")
+        self.pasteboard.clear()
+        # ZZZ replace pyperclip with a self.clipboard_clear, self.clipboard_copy, self.clipboard_paste
+        # or Clipboard class with those methods
+        # that auto update the pasteboard_count
 
     def on_confidence(self, sender):
         """Change confidence threshold."""
@@ -354,50 +375,83 @@ class Textinator(rumps.App):
 
             self.log(f"processing new screenshot: {path}")
 
-            # if "Always detect English" checked, add English to list of languages to detect
-            languages = (
-                [self.recognition_language, LANGUAGE_ENGLISH]
-                if self.language_english.state
-                and self.recognition_language != LANGUAGE_ENGLISH
-                else [self.recognition_language]
-            )
-            detected_text = detect_text(path, languages=languages)
-            confidence = CONFIDENCE[self.get_confidence_state()]
-            text = "\n".join(
-                result[0] for result in detected_text if result[1] >= confidence
-            )
+            screenshot_image = ciimage_from_file(path)
+            if screenshot_image is None:
+                self.log(f"failed to load screenshot image: {path}")
+                continue
 
-            if self.qrcodes.state:
-                # Also detect QR codes and copy the text from the QR code payload
-                if detected_qrcodes := detect_qrcodes(path):
-                    text = (
-                        text + "\n" + "\n".join(detected_qrcodes)
-                        if text
-                        else "\n".join(detected_qrcodes)
-                    )
-
-            if text:
-                if not self.linebreaks.state:
-                    text = text.replace("\n", " ")
-                # Note: only log the fact that text was detected, not the text itself
-                # as sometimes the mere fact of logging certain text causes the process to hang
-                # I have no idea why this happens but it's reproducible
-                self.log(f"detected text in {path}")
-                text = (
-                    f"{pyperclip.paste()}\n{text}"
-                    if self.append.state and pyperclip.paste()
-                    else text
-                )
-                pyperclip.copy(text)
-            else:
-                self.log(f"detected no text in {path}")
+            detected_text = self.process_image(screenshot_image)
             if self.notification.state:
                 rumps.notification(
                     title="Processed Screenshot",
                     subtitle=f"{path}",
-                    message=f"Detected text: {text}" if text else "No text detected",
+                    message=f"Detected text: {detected_text}"
+                    if detected_text
+                    else "No text detected",
                 )
-            self._screenshots[path] = text
+            self._screenshots[path] = detected_text
+
+    def process_image(self, image: Quartz.CIImage) -> str:
+        """Process an image and detect text (and QR codes if requested).
+
+        Args:
+            image: Quartz.CIImage
+            path: Optional path to the image file (used for logging)
+
+        Returns:
+            String of detected text or empty string if no text detected.
+        """
+        # if "Always detect English" checked, add English to list of languages to detect
+        languages = (
+            [self.recognition_language, LANGUAGE_ENGLISH]
+            if self.language_english.state
+            and self.recognition_language != LANGUAGE_ENGLISH
+            else [self.recognition_language]
+        )
+        detected_text = detect_text_in_ciimage(image, languages=languages)
+        confidence = CONFIDENCE[self.get_confidence_state()]
+        text = "\n".join(
+            result[0] for result in detected_text if result[1] >= confidence
+        )
+
+        if self.qrcodes.state:
+            # Also detect QR codes and copy the text from the QR code payload
+            if detected_qrcodes := detect_qrcodes_in_ciimage(image):
+                text = (
+                    text + "\n" + "\n".join(detected_qrcodes)
+                    if text
+                    else "\n".join(detected_qrcodes)
+                )
+
+        if text:
+            if not self.linebreaks.state:
+                text = text.replace("\n", " ")
+            # Note: only log the fact that text was detected, not the text itself
+            # as sometimes the mere fact of logging certain text causes the process to hang
+            # I have no idea why this happens but it's reproducible
+            detected_text = True
+            if self.append.state:
+                clipboard_text = (
+                    self.pasteboard.paste() if self.pasteboard.has_text() else ""
+                )
+                clipboard_text = f"{clipboard_text}\n{text}"
+            else:
+                clipboard_text = text
+
+            if self.confirmation.state:
+                # display confirmation dialog
+                verb = "Append" if self.append.state else "Copy"
+                if rumps.alert(
+                    title=f"{verb} detected text to clipboard?",
+                    message=text,
+                    ok="Yes",
+                    cancel="No",
+                ):
+                    self.pasteboard.copy(clipboard_text)
+            else:
+                self.pasteboard.copy(clipboard_text)
+
+        return text
 
     def query_updated_(self, notif):
         """Receives and processes notifications from the Spotlight query"""
@@ -417,207 +471,36 @@ class Textinator(rumps.App):
             self.log("search: an update happened.")
             self.process_screenshot(notif)
 
+    @rumps.timer(CLIPBOARD_CHECK_INTERVAL)
+    def clipboard_watcher(self, sender):
+        """Watch the clipboard (pasteboard) for changes"""
+        if not self.detect_clipboard.state:
+            return
 
-def verify_desktop_access():
-    """Verify that the app has access to the user's Desktop
+        if self.pasteboard.has_changed() and self.pasteboard.has_image():
+            # image is on the pasteboard, process it
+            self.log("new image on clipboard")
+            if self._paused:
+                self.log("skipping clipboard image because app is paused")
+                return
+            self.process_clipboard_image()
 
-    If the App has NSDesktopFolderUsageDescription set in Info.plist,
-    user will be prompted to grant Desktop access the first time this is run.
-
-    Returns: True if access is granted, False otherwise.
-    """
-    with objc.autorelease_pool():
-        (
-            desktop_url,
-            error,
-        ) = NSFileManager.defaultManager().URLForDirectory_inDomain_appropriateForURL_create_error_(
-            NSDesktopDirectory, NSUserDomainMask, None, False, None
-        )
-        if error:
-            return False
-        (
-            desktop_files,
-            error,
-        ) = NSFileManager.defaultManager().contentsOfDirectoryAtURL_includingPropertiesForKeys_options_error_(
-            desktop_url, [], 0, None
-        )
-        return not error
-
-
-def get_mac_os_version() -> Tuple[str, str, str]:
-    """Returns tuple of str in form (version, major, minor) containing OS version, e.g. 10.13.6 = ("10", "13", "6")"""
-    version = platform.mac_ver()[0].split(".")
-    if len(version) == 2:
-        (ver, major) = version
-        minor = "0"
-    elif len(version) == 3:
-        (ver, major, minor) = version
-    else:
-        raise (
-            ValueError(
-                f"Could not parse version string: {platform.mac_ver()} {version}"
-            )
-        )
-
-    # python might return 10.16 instead of 11.0 for Big Sur and above
-    if ver == "10" and int(major) >= 16:
-        ver = str(11 + int(major) - 16)
-        major = minor
-        minor = "0"
-
-    return (ver, major, minor)
-
-
-def get_supported_vision_languages() -> Tuple[Tuple[str], Tuple[str]]:
-    """Get supported languages for text detection from Vision framework.
-
-    Returns: Tuple of ((language code), (error))
-    """
-
-    with objc.autorelease_pool():
-        revision = Vision.VNRecognizeTextRequestRevision1
-        if get_mac_os_version() >= ("11", "0", "0"):
-            revision = Vision.VNRecognizeTextRequestRevision2
-
-        if get_mac_os_version() < ("12", "0", "0"):
-            return Vision.VNRecognizeTextRequest.supportedRecognitionLanguagesForTextRecognitionLevel_revision_error_(
-                Vision.VNRequestTextRecognitionLevelAccurate, revision, None
-            )
-
-        results = []
-        handler = make_request_handler(results)
-        textRequest = Vision.VNRecognizeTextRequest.alloc().initWithCompletionHandler_(
-            handler
-        )
-        return textRequest.supportedRecognitionLanguagesAndReturnError_(None)
-
-
-def detect_text(
-    img_path: str,
-    orientation: Optional[int] = None,
-    languages: Optional[List[str]] = None,
-) -> List:
-    """process image at img_path with VNRecognizeTextRequest and return list of results
-
-    This code originally developed for https://github.com/RhetTbull/osxphotos
-
-    Args:
-        img_path: path to the image file
-        orientation: optional EXIF orientation (if known, passing orientation may improve quality of results)
-        languages: optional languages to use for text detection as list of ISO language code strings; default is ["en-US"]
-    """
-    with objc.autorelease_pool():
-        input_url = NSURL.fileURLWithPath_(img_path)
-
-        # create a CIIImage from the image at img_path as that's what Vision wantsß
-        input_image = Quartz.CIImage.imageWithContentsOfURL_(input_url)
-
-        vision_options = NSDictionary.dictionaryWithDictionary_({})
-        if orientation is None:
-            vision_handler = (
-                Vision.VNImageRequestHandler.alloc().initWithCIImage_options_(
-                    input_image, vision_options
+    def process_clipboard_image(self):
+        """Process the image on the clipboard."""
+        if image_data := self.pasteboard.get_image_data(TIFF):
+            image = Quartz.CIImage.imageWithData_(image_data)
+            detected_text = self.process_image(image)
+            self.log("processed clipboard image")
+            if self.notification.state:
+                rumps.notification(
+                    title="Processed Clipboard Image",
+                    subtitle="",
+                    message=f"Detected text: {detected_text}"
+                    if detected_text
+                    else "No text detected",
                 )
-            )
-        elif 1 <= orientation <= 8:
-            vision_handler = Vision.VNImageRequestHandler.alloc().initWithCIImage_orientation_options_(
-                input_image, orientation, vision_options
-            )
         else:
-            raise ValueError("orientation must be between 1 and 8")
-        results = []
-        handler = make_request_handler(results)
-        vision_request = (
-            Vision.VNRecognizeTextRequest.alloc().initWithCompletionHandler_(handler)
-        )
-        languages = languages or ["en-US"]
-        vision_request.setRecognitionLanguages_(languages)
-        vision_request.setUsesLanguageCorrection_(True)
-        success, error = vision_handler.performRequests_error_([vision_request], None)
-        if not success:
-            raise ValueError(f"Vision request failed: {error}")
-
-        for result in results:
-            result[0] = str(result[0])
-
-        return results
-
-
-def make_request_handler(results):
-    """results: list to store results"""
-    if not isinstance(results, list):
-        raise ValueError("results must be a list")
-
-    def handler(request, error):
-        if error:
-            NSLog(f"{APP_NAME} Error! {error}")
-        else:
-            observations = request.results()
-            for text_observation in observations:
-                recognized_text = text_observation.topCandidates_(1)[0]
-                results.append([recognized_text.string(), recognized_text.confidence()])
-
-    return handler
-
-
-def detect_qrcodes(filepath: str) -> List[str]:
-    """Detect QR Codes in images using CIDetector and return text of the found QR Codes"""
-    with objc.autorelease_pool():
-        context = Quartz.CIContext.contextWithOptions_(None)
-        options = NSDictionary.dictionaryWithDictionary_(
-            {"CIDetectorAccuracy": Quartz.CIDetectorAccuracyHigh}
-        )
-        detector = Quartz.CIDetector.detectorOfType_context_options_(
-            Quartz.CIDetectorTypeQRCode, context, options
-        )
-
-        results = []
-        input_url = NSURL.fileURLWithPath_(filepath)
-        input_image = Quartz.CIImage.imageWithContentsOfURL_(input_url)
-        features = detector.featuresInImage_(input_image)
-
-        if not features:
-            return []
-        for idx in range(features.count()):
-            feature = features.objectAtIndex_(idx)
-            results.append(feature.messageString())
-        return results
-
-
-def get_app_path() -> str:
-    """Return path to the bundle containing this script"""
-    # Note: This must be called from an app bundle built with py2app or you'll get
-    # the path of the python interpreter instead of the actual app
-    return NSBundle.mainBundle().bundlePath()
-
-
-# The following functions are used to manipulate the Login Items list in System Preferences
-# To use these, your app must include the com.apple.security.automation.apple-events entitlement
-# in its entitlements file during signing and must have the NSAppleEventsUsageDescription key in
-# its Info.plist file
-# These functions use AppleScript to interact with System Preferences. I know of no other way to
-# do this programmatically from Python.  If you know of a better way, please let me know!
-
-
-def add_login_item(app_name: str, app_path: str, hidden: bool = False):
-    """Add app to login items"""
-    scpt = (
-        'tell application "System Events" to make login item at end with properties '
-        + f'{{name:"{app_name}", path:"{app_path}", hidden:{"true" if hidden else "false"}}}'
-    )
-    applescript.AppleScript(scpt).run()
-
-
-def remove_login_item(app_name: str):
-    """Remove app from login items"""
-    scpt = f'tell application "System Events" to delete login item "{app_name}"'
-    applescript.AppleScript(scpt).run()
-
-
-def list_login_items() -> List[str]:
-    """Return list of login items"""
-    scpt = 'tell application "System Events" to get the name of every login item'
-    return applescript.AppleScript(scpt).run()
+            self.log("failed to get image data from pasteboard")
 
 
 if __name__ == "__main__":
