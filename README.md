@@ -58,6 +58,8 @@ To upgrade to the latest version, download the latest installer DMG from [releas
 
 - Press ⌘ + ⇧ + 4 (`Cmd + Shift + 4`) to take a screenshot then paste the detected text wherever you'd like it to be.
 
+- Textinator can also monitor the clipboard for changes which means you can also copy an image from any app or press Control + ⌘ + ⇧ + 4 (`Ctrl + Cmd + Shift + 4`) to take a screenshot and copy it to the clipboard without creating a screenshot file. Textinator will then detect any text in the image and copy it to the clipboard, overwriting the copied image.
+
 ## Settings
 
 - `Text detection threshold confidence`: The confidence threshold for text detection.  The higher the value, the more accurate the text detection will be but a higher setting may result in some text not being detected (because the detected text was below the specified threshold). The default value is 'Low' which is equivalent to a [VNRecognizeTextRequest](https://developer.apple.com/documentation/vision/vnrecognizetextrequest?language=objc) confidence threshold of `0.3` (Medium = `0.5`, Migh = `0.8`).
@@ -91,6 +93,8 @@ Textinator is built with [rumps (Ridiculously Uncomplicated macOS Python Statusb
 At startup, Textinator starts a persistent [NSMetadataQuery Spotlight query](https://developer.apple.com/documentation/foundation/nsmetadataquery?language=objc) (using the [pyobjc](https://pyobjc.readthedocs.io/en/latest/) Python-to-Objective-C bridge) to detect when a new screenshot is created.
 
 When the user creates screenshot, the `NSMetadataQuery` query is fired and Textinator performs text detection using a [Vision](https://developer.apple.com/documentation/vision?language=objc) [VNRecognizeTextRequest](https://developer.apple.com/documentation/vision/vnrecognizetextrequest?language=objc) call.
+
+Textinator can also monitor the clipboard and detect text in images copied to the clipboard.
 
 ## Notes
 
