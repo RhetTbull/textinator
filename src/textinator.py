@@ -7,9 +7,12 @@ import contextlib
 import datetime
 import plistlib
 
+import objc
 import Quartz
 import rumps
+from AppKit import NSPasteboardTypeFileURL
 from Foundation import (
+    NSURL,
     NSLog,
     NSMetadataQuery,
     NSMetadataQueryDidFinishGatheringNotification,
@@ -17,20 +20,22 @@ from Foundation import (
     NSMetadataQueryDidUpdateNotification,
     NSMetadataQueryGatheringProgressNotification,
     NSNotificationCenter,
+    NSObject,
     NSPredicate,
+    NSString,
+    NSUTF8StringEncoding,
 )
 
 from loginitems import add_login_item, list_login_items, remove_login_item
 from macvision import (
     ciimage_from_file,
     detect_qrcodes_in_ciimage,
-    detect_qrcodes_in_file,
     detect_text_in_ciimage,
-    detect_text_in_file,
     get_supported_vision_languages,
 )
-from pasteboard import Pasteboard, TIFF
+from pasteboard import TIFF, Pasteboard
 from utils import get_app_path, verify_desktop_access
+import typing as t
 
 __version__ = "0.9.0"
 
@@ -142,6 +147,11 @@ class Textinator(rumps.App):
 
         self.log(__file__)
 
+        from AppKit import NSApplication
+
+        self.service_provider = ServiceProvider.alloc().initWithApp_(self)
+        NSApplication.sharedApplication().setServicesProvider_(self.service_provider)
+
         # This will be used by clipboard_watcher() to detect changes to the pasteboard
         # (which everyone but Apple calls the clipboard)
         self.pasteboard = Pasteboard()
@@ -241,9 +251,6 @@ class Textinator(rumps.App):
     def on_clear_clipboard(self, sender):
         """Clear the clipboard"""
         self.pasteboard.clear()
-        # ZZZ replace pyperclip with a self.clipboard_clear, self.clipboard_copy, self.clipboard_paste
-        # or Clipboard class with those methods
-        # that auto update the pasteboard_count
 
     def on_confidence(self, sender):
         """Change confidence threshold."""
@@ -434,7 +441,7 @@ class Textinator(rumps.App):
                 clipboard_text = (
                     self.pasteboard.paste() if self.pasteboard.has_text() else ""
                 )
-                clipboard_text = f"{clipboard_text}\n{text}"
+                clipboard_text = f"{clipboard_text}\n{text}" if clipboard_text else text
             else:
                 clipboard_text = text
 
@@ -501,6 +508,55 @@ class Textinator(rumps.App):
                 )
         else:
             self.log("failed to get image data from pasteboard")
+
+
+def serviceSelector(fn):
+    # this is the signature of service selectors
+    return objc.selector(fn, signature=b"v@:@@o^@")
+
+
+def ErrorValue(e):
+    """Handler for errors returned by the service."""
+    NSLog(f"{APP_NAME} {__version__} error: {e}")
+    return e
+
+
+class ServiceProvider(NSObject):
+    """Service provider class to handle messages from the Services menu
+
+    Initialize with ServiceProvider.alloc().initWithApp_(app)
+    """
+
+    app: t.Optional[Textinator] = None
+
+    def initWithApp_(self, app: Textinator):
+        self = objc.super(ServiceProvider, self).init()
+        self.app = app
+        return self
+
+    @serviceSelector
+    def detectTextInImage_userData_error_(self, pasteboard, userdata, error) -> None:
+        """Detect text in an image on the clipboard."""
+        self.app.log("detectTextInImage_userData_error_ called via Services menu")
+
+        if self.app._paused:
+            self.app.log("skipping text detection because app is paused")
+
+        try:
+            for item in pasteboard.pasteboardItems():
+                pb_url_data = item.dataForType_(NSPasteboardTypeFileURL)
+                pb_url = NSURL.URLWithString_(
+                    NSString.alloc().initWithData_encoding_(
+                        pb_url_data, NSUTF8StringEncoding
+                    )
+                )
+                self.app.log(f"processing file from Services menu: {pb_url.path()}")
+                image = Quartz.CIImage.imageWithContentsOfURL_(pb_url)
+                self.app.process_image(image)
+        except Exception as e:
+            return ErrorValue(e)
+
+        return None
 
 
 if __name__ == "__main__":

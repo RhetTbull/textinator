@@ -33,6 +33,17 @@ OPTIONS = {
         "you will also need to grant Textinator full disk access in "
         "System Preferences > Security & Privacy > Privacy > Full Disk Access.",
         "NSAppleEventsUsageDescription": "Textinator needs permission to send AppleScript events to add itself to Login Items.",
+        "NSServices": [
+            {
+                "NSMenuItem": {"default": "Detect text with Textinator"},
+                "NSMessage": "detectTextInImage",
+                "NSPortName": "Textinator",
+                "NSUserData": "detectTextInImage",
+                "NSRequiredContext": {"NSTextContent": "FilePath"},
+                "NSSendTypes": ["NSPasteboardTypeURL"],
+                "NSSendFileTypes": ["public.image"],
+            },
+        ],
     },
 }
 
