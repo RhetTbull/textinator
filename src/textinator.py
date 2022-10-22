@@ -6,6 +6,7 @@ Runs on Catalina (10.15) and later.
 import contextlib
 import datetime
 import plistlib
+import typing as t
 
 import objc
 import Quartz
@@ -35,7 +36,6 @@ from macvision import (
 )
 from pasteboard import TIFF, Pasteboard
 from utils import get_app_path, verify_desktop_access
-import typing as t
 
 __version__ = "0.9.0"
 
