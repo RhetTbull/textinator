@@ -32,7 +32,7 @@ from macvision import (
 from pasteboard import Pasteboard, TIFF
 from utils import get_app_path, verify_desktop_access
 
-__version__ = "0.8.2"
+__version__ = "0.9.0"
 
 APP_NAME = "Textinator"
 APP_ICON = "icon.png"

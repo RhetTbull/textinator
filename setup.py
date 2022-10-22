@@ -9,7 +9,7 @@ from setuptools import setup
 
 APP = ["src/textinator.py"]
 
-__version__ = "0.8.2"
+__version__ = "0.9.0"
 
 # Include additional python modules here; probably not the best way to do this
 # but I couldn't figure out how else to get py2app to include modules in the src/ folder
