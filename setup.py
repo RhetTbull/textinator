@@ -9,6 +9,8 @@ from setuptools import setup
 
 APP = ["src/textinator.py"]
 
+__version__ = "0.8.2"
+
 # Include additional python modules here; probably not the best way to do this
 # but I couldn't figure out how else to get py2app to include modules in the src/ folder
 DATA_FILES = [
@@ -24,6 +26,8 @@ OPTIONS = {
     "iconfile": "icon.icns",
     "plist": {
         "LSUIElement": True,
+        "CFBundleShortVersionString": __version__,
+        "CFBundleVersion": __version__,
         "NSDesktopFolderUsageDescription": "Textinator needs access to your Desktop folder to detect new screenshots. "
         "If you have changed the default location for screenshots, "
         "you will also need to grant Textinator full disk access in "

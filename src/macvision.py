@@ -9,7 +9,14 @@ from Foundation import NSURL, NSDictionary, NSLog
 
 from utils import get_mac_os_version
 
-__all__ = ["detect_text", "detect_qrcodes", "get_supported_vision_languages"]
+__all__ = [
+    "ciiimage_from_file",
+    "detect_qrcodes_in_ciimage",
+    "detect_qrcodes_in_file",
+    "detect_text_in_ciimage",
+    "detect_text_in_file",
+    "get_supported_vision_languages",
+]
 
 
 def get_supported_vision_languages() -> Tuple[Tuple[str], Tuple[str]]:
@@ -36,36 +43,67 @@ def get_supported_vision_languages() -> Tuple[Tuple[str], Tuple[str]]:
         return textRequest.supportedRecognitionLanguagesAndReturnError_(None)
 
 
-def detect_text(
+def ciimage_from_file(filepath: str) -> Quartz.CIImage:
+    """Create a Quartz.CIImage from a file
+
+    Args:
+        filepath: path to the image file
+
+    Returns:
+        Quartz.CIImage
+    """
+    with objc.autorelease_pool():
+        input_url = NSURL.fileURLWithPath_(filepath)
+        return Quartz.CIImage.imageWithContentsOfURL_(input_url)
+
+
+def detect_text_in_file(
     img_path: str,
     orientation: Optional[int] = None,
     languages: Optional[List[str]] = None,
-) -> List:
-    """process image at img_path with VNRecognizeTextRequest and return list of results
-
-    This code originally developed for https://github.com/RhetTbull/osxphotos
+) -> List[Tuple[str, float]]:
+    """process image file at img_path with VNRecognizeTextRequest and return list of results
 
     Args:
         img_path: path to the image file
         orientation: optional EXIF orientation (if known, passing orientation may improve quality of results)
         languages: optional languages to use for text detection as list of ISO language code strings; default is ["en-US"]
+
+    Returns:
+        List of results where each result is a list of [text, confidence]
+    """
+    input_image = ciimage_from_file(img_path)
+    return detect_text_in_ciimage(input_image, orientation, languages)
+
+
+def detect_text_in_ciimage(
+    image: Quartz.CIImage,
+    orientation: Optional[int] = None,
+    languages: Optional[List[str]] = None,
+) -> List[Tuple[str, float]]:
+    """process CIImage with VNRecognizeTextRequest and return list of results
+
+    This code originally developed for https://github.com/RhetTbull/osxphotos
+
+    Args:
+        image: CIIImage to process
+        orientation: optional EXIF orientation (if known, passing orientation may improve quality of results)
+        languages: optional languages to use for text detection as list of ISO language code strings; default is ["en-US"]
+
+    Returns:
+        List of results where each result is a list of [text, confidence]
     """
     with objc.autorelease_pool():
-        input_url = NSURL.fileURLWithPath_(img_path)
-
-        # create a CIIImage from the image at img_path as that's what Vision wantsß
-        input_image = Quartz.CIImage.imageWithContentsOfURL_(input_url)
-
         vision_options = NSDictionary.dictionaryWithDictionary_({})
         if orientation is None:
             vision_handler = (
                 Vision.VNImageRequestHandler.alloc().initWithCIImage_options_(
-                    input_image, vision_options
+                    image, vision_options
                 )
             )
         elif 1 <= orientation <= 8:
             vision_handler = Vision.VNImageRequestHandler.alloc().initWithCIImage_orientation_options_(
-                input_image, orientation, vision_options
+                image, orientation, vision_options
             )
         else:
             raise ValueError("orientation must be between 1 and 8")
@@ -81,10 +119,7 @@ def detect_text(
         if not success:
             raise ValueError(f"Vision request failed: {error}")
 
-        for result in results:
-            result[0] = str(result[0])
-
-        return results
+        return [(str(result[0]), float(result[1])) for result in results]
 
 
 def make_request_handler(results):
@@ -104,8 +139,30 @@ def make_request_handler(results):
     return handler
 
 
-def detect_qrcodes(filepath: str) -> List[str]:
-    """Detect QR Codes in images using CIDetector and return text of the found QR Codes"""
+def detect_qrcodes_in_file(img_path: str) -> List[str]:
+    """Detect QR Codes in image files using CIDetector and return text of the found QR Codes
+
+    Args:
+        img_path: path to the image file
+
+    Returns:
+        List of QR Code payload texts found in the image
+    """
+
+    input_image = ciimage_from_file(img_path)
+    return detect_qrcodes_in_ciimage(input_image)
+
+
+def detect_qrcodes_in_ciimage(image: Quartz.CIImage) -> List[str]:
+    """Detect QR Codes in image using CIDetector and return text of the found QR Codes
+
+    Args:
+        input_image: CIImage to process
+
+    Returns:
+        List of QR Code payload texts found in the image
+    """
+
     with objc.autorelease_pool():
         context = Quartz.CIContext.contextWithOptions_(None)
         options = NSDictionary.dictionaryWithDictionary_(
@@ -116,9 +173,7 @@ def detect_qrcodes(filepath: str) -> List[str]:
         )
 
         results = []
-        input_url = NSURL.fileURLWithPath_(filepath)
-        input_image = Quartz.CIImage.imageWithContentsOfURL_(input_url)
-        features = detector.featuresInImage_(input_image)
+        features = detector.featuresInImage_(image)
 
         if not features:
             return []

@@ -3,8 +3,31 @@
 import os
 import typing as t
 
-from AppKit import NSPasteboard, NSPasteboardTypePNG, NSPasteboardTypeString
+from AppKit import (
+    NSPasteboard,
+    NSPasteboardTypePNG,
+    NSPasteboardTypeString,
+    NSPasteboardTypeTIFF,
+)
 from Foundation import NSData
+
+# shortcuts for types
+PNG = "PNG"
+TIFF = "TIFF"
+
+__all__ = ["Pasteboard", "PasteboardTypeError", "PNG", "TIFF"]
+
+
+class PasteboardError(Exception):
+    """Base class for Pasteboard exceptions"""
+
+    ...
+
+
+class PasteboardTypeError(PasteboardError):
+    """Invalid type specified"""
+
+    ...
 
 
 class Pasteboard:
@@ -43,21 +66,28 @@ class Pasteboard:
         self.pasteboard.clearContents()
         self._change_count = self.pasteboard.changeCount()
 
-    def copy_image(self, filename: t.Union[str, os.PathLike]):
+    def copy_image(self, filename: t.Union[str, os.PathLike], format: str):
         """Copy image to clipboard from filename
 
         Args:
             filename (os.PathLike): Filename of image to copy to clipboard
+            format (str): Format of image to copy, "PNG" or "TIFF"
         """
         if not isinstance(filename, str):
             filename = str(filename)
-        self.set_image(filename)
+        self.set_image(filename, format)
 
-    def paste_image(self, filename: t.Union[str, os.PathLike], overwrite: bool = False):
+    def paste_image(
+        self,
+        filename: t.Union[str, os.PathLike],
+        format: str,
+        overwrite: bool = False,
+    ):
         """Paste image from clipboard to filename in PNG format
 
         Args:
             filename (os.PathLike): Filename of image to paste to
+            format (str): Format of image to paste, "PNG" or "TIFF"
             overwrite (bool): Overwrite existing file
 
         Raises:
@@ -65,7 +95,7 @@ class Pasteboard:
         """
         if not isinstance(filename, str):
             filename = str(filename)
-        self.get_image(filename, overwrite)
+        self.get_image(filename, format, overwrite)
 
     def set_text(self, text: str):
         """Set text on clipboard
@@ -84,49 +114,81 @@ class Pasteboard:
         """
         return self.pasteboard.stringForType_(NSPasteboardTypeString) or ""
 
-    def get_image(self, filename: t.Union[str, os.PathLike], overwrite: bool = False):
+    def get_image(
+        self,
+        filename: t.Union[str, os.PathLike],
+        format: str,
+        overwrite: bool = False,
+    ):
         """Save image from clipboard to filename in PNG format
 
         Args:
             filename (os.PathLike): Filename of image to save to
+            format (str): Format of image to save, "PNG" or "TIFF"
             overwrite (bool): Overwrite existing file
 
         Raises:
             FileExistsError: If file exists and overwrite is False
+            PasteboardTypeError: If format is not "PNG" or "TIFF"
         """
+        if format not in (PNG, TIFF):
+            raise PasteboardTypeError("Invalid format, must be PNG or TIFF")
+
         if not isinstance(filename, str):
             filename = str(filename)
+
         if not overwrite and os.path.exists(filename):
             raise FileExistsError(f"File '{filename}' already exists")
-        data = self.get_image_data()
+
+        data = self.get_image_data(format)
         data.writeToFile_atomically_(filename, True)
 
-    def set_image(self, filename: t.Union[str, os.PathLike]):
-        """Set image on clipboard from filename
+    def set_image(self, filename: t.Union[str, os.PathLike], format: str):
+        """Set image on clipboard from file in either PNG or TIFF format
 
         Args:
             filename (os.PathLike): Filename of image to set on clipboard
+            format (str): Format of image to set, "PNG" or "TIFF"
         """
         if not isinstance(filename, str):
             filename = str(filename)
         data = NSData.dataWithContentsOfFile_(filename)
-        self.set_image_data(data)
+        self.set_image_data(data, format)
 
-    def get_image_data(self) -> NSData:
-        """Return image data from clipboard as NSData in PNG format
+    def get_image_data(self, format: str) -> NSData:
+        """Return image data from clipboard as NSData in PNG or TIFF format
 
-        Returns: NSData of image in PNG format
+        Args:
+            format (str): Format of image to return, "PNG" or "TIFF"
+
+        Returns: NSData of image in PNG or TIFF format
+
+        Raises:
+            PasteboardTypeError if clipboard does not contain image in the specified type or type is invalid
         """
-        return self.pasteboard.dataForType_(NSPasteboardTypePNG)
+        if format not in (PNG, TIFF):
+            raise PasteboardTypeError("Invalid format, must be PNG or TIFF")
 
-    def set_image_data(self, image_data: NSData):
-        """Set image data on clipboard from NSData in PNG format
+        pb_type = NSPasteboardTypePNG if format == PNG else NSPasteboardTypeTIFF
+        if pb_type == NSPasteboardTypePNG and not self._has_png():
+            raise PasteboardTypeError("Clipboard does not contain PNG image")
+        return self.pasteboard.dataForType_(pb_type)
+
+    def set_image_data(self, image_data: NSData, format: str):
+        """Set image data on clipboard from NSData in a supported image format
 
         Args:
             image_data (NSData): Image data to set on clipboard
+            format (str): Format of image to set, "PNG" or "TIFF"
+
+        Raises: PasteboardTypeError if format is not "PNG" or "TIFF"
         """
+        if format not in (PNG, TIFF):
+            raise PasteboardTypeError("Invalid format, must be PNG or TIFF")
+
+        format_type = NSPasteboardTypePNG if format == PNG else NSPasteboardTypeTIFF
         self.pasteboard.clearContents()
-        self.pasteboard.setData_forType_(image_data, NSPasteboardTypePNG)
+        self.pasteboard.setData_forType_(image_data, format_type)
         self._change_count = self.pasteboard.changeCount()
 
     def has_changed(self) -> bool:
@@ -139,12 +201,28 @@ class Pasteboard:
             return True
         return False
 
-    def has_image(self) -> bool:
+    def has_image(self, format: t.Optional[str] = None) -> bool:
         """Return True if clipboard has image otherwise False
 
-        Returns: bool
+        Args:
+            format (str): Format of image to check for, "PNG" or "TIFF" or None to check for any image
+
+        Returns:
+            True if clipboard has image otherwise False
+
+        Raises:
+            PasteboardTypeError if format is not "PNG" or "TIFF"
         """
-        return self.pasteboard.types().containsObject_(NSPasteboardTypePNG)
+        if format is None:
+            return self.pasteboard.types().containsObject_(
+                NSPasteboardTypeTIFF
+            ) or self.pasteboard.types().containsObject_(NSPasteboardTypePNG)
+        elif format == PNG:
+            return self._has_png()
+        elif format == TIFF:
+            return self._has_tiff()
+        else:
+            raise PasteboardTypeError("Invalid format, must be PNG or TIFF")
 
     def has_text(self) -> bool:
         """Return True if clipboard has text, otherwise False
@@ -152,3 +230,17 @@ class Pasteboard:
         Returns: bool
         """
         return self.pasteboard.types().containsObject_(NSPasteboardTypeString)
+
+    def _has_png(self) -> bool:
+        """Return True if clipboard can paste PNG image otherwise False
+
+        Returns: bool
+        """
+        return bool(self.pasteboard.availableTypeFromArray_([NSPasteboardTypePNG]))
+
+    def _has_tiff(self) -> bool:
+        """Return True if clipboard can paste TIFF image otherwise False
+
+        Returns: bool
+        """
+        return bool(self.pasteboard.availableTypeFromArray_([NSPasteboardTypeTIFF]))

@@ -7,6 +7,7 @@ import contextlib
 import datetime
 import plistlib
 
+import Quartz
 import rumps
 from Foundation import (
     NSLog,
@@ -20,8 +21,15 @@ from Foundation import (
 )
 
 from loginitems import add_login_item, list_login_items, remove_login_item
-from macvision import detect_qrcodes, detect_text, get_supported_vision_languages
-from pasteboard import Pasteboard
+from macvision import (
+    ciimage_from_file,
+    detect_qrcodes_in_ciimage,
+    detect_qrcodes_in_file,
+    detect_text_in_ciimage,
+    detect_text_in_file,
+    get_supported_vision_languages,
+)
+from pasteboard import Pasteboard, TIFF
 from utils import get_app_path, verify_desktop_access
 
 __version__ = "0.8.2"
@@ -45,7 +53,7 @@ CONFIG_FILE = f"{APP_NAME}.plist"
 LOG_FILE = f"{APP_NAME}.log"
 
 # how often (in seconds) to check for new screenshots on the clipboard
-PASTEBOARD_CHECK_INTERVAL = 2
+CLIPBOARD_CHECK_INTERVAL = 2
 
 
 class Textinator(rumps.App):
@@ -80,6 +88,9 @@ class Textinator(rumps.App):
         for language in languages:
             self.language.add(rumps.MenuItem(language, self.on_language))
         self.language_english = rumps.MenuItem("Always detect English", self.on_toggle)
+        self.detect_clipboard = rumps.MenuItem(
+            "Detect text in images on clipboard", self.on_toggle
+        )
         self.qrcodes = rumps.MenuItem("Detect QR codes", self.on_toggle)
         self.pause = rumps.MenuItem("Pause text detection", self.on_pause)
         self.notification = rumps.MenuItem("Notification", self.on_toggle)
@@ -88,6 +99,7 @@ class Textinator(rumps.App):
         self.clear_clipboard = rumps.MenuItem(
             "Clear Clipboard", self.on_clear_clipboard
         )
+        self.confirmation = rumps.MenuItem("Confirm clipboard changes", self.on_toggle)
         self.start_on_login = rumps.MenuItem(
             f"Start {APP_NAME} on login", self.on_start_on_login
         )
@@ -100,6 +112,7 @@ class Textinator(rumps.App):
             ],
             self.language,
             self.language_english,
+            self.detect_clipboard,
             self.pause,
             None,
             self.qrcodes,
@@ -109,6 +122,7 @@ class Textinator(rumps.App):
             self.linebreaks,
             self.append,
             self.clear_clipboard,
+            self.confirmation,
             None,
             self.start_on_login,
             self.about,
@@ -128,8 +142,8 @@ class Textinator(rumps.App):
 
         self.log(__file__)
 
-        # initialize pasteboard watcher
-        # these will be used by pasteboard_watcher() to detect changes to the pasteboard
+        # This will be used by clipboard_watcher() to detect changes to the pasteboard
+        # (which everyone but Apple calls the clipboard)
         self.pasteboard = Pasteboard()
 
         # start the spotlight query
@@ -165,6 +179,8 @@ class Textinator(rumps.App):
                 "always_detect_english": True,
                 "detect_qrcodes": False,
                 "start_on_login": False,
+                "confirmation": False,
+                "detect_clipboard": True,
             }
         self.log(f"loaded config: {self.config}")
         self.append.state = self.config.get("append", False)
@@ -176,6 +192,8 @@ class Textinator(rumps.App):
         )
         self.set_language_menu_state(self.recognition_language)
         self.language_english.state = self.config.get("always_detect_english", True)
+        self.detect_clipboard.state = self.config.get("detect_clipboard", True)
+        self.confirmation.state = self.config.get("confirmation", False)
         self.qrcodes.state = self.config.get("detect_qrcodes", False)
         self._debug = self.config.get("debug", False)
         self.start_on_login.state = self.config.get("start_on_login", False)
@@ -189,6 +207,8 @@ class Textinator(rumps.App):
         self.config["confidence"] = self.get_confidence_state()
         self.config["language"] = self.recognition_language
         self.config["always_detect_english"] = self.language_english.state
+        self.config["detect_clipboard"] = self.detect_clipboard.state
+        self.config["confirmation"] = self.confirmation.state
         self.config["detect_qrcodes"] = self.qrcodes.state
         self.config["debug"] = self._debug
         self.config["start_on_login"] = self.start_on_login.state
@@ -355,48 +375,83 @@ class Textinator(rumps.App):
 
             self.log(f"processing new screenshot: {path}")
 
-            # if "Always detect English" checked, add English to list of languages to detect
-            languages = (
-                [self.recognition_language, LANGUAGE_ENGLISH]
-                if self.language_english.state
-                and self.recognition_language != LANGUAGE_ENGLISH
-                else [self.recognition_language]
-            )
-            detected_text = detect_text(path, languages=languages)
-            confidence = CONFIDENCE[self.get_confidence_state()]
-            text = "\n".join(
-                result[0] for result in detected_text if result[1] >= confidence
-            )
+            screenshot_image = ciimage_from_file(path)
+            if screenshot_image is None:
+                self.log(f"failed to load screenshot image: {path}")
+                continue
 
-            if self.qrcodes.state:
-                # Also detect QR codes and copy the text from the QR code payload
-                if detected_qrcodes := detect_qrcodes(path):
-                    text = (
-                        text + "\n" + "\n".join(detected_qrcodes)
-                        if text
-                        else "\n".join(detected_qrcodes)
-                    )
-
-            if text:
-                if not self.linebreaks.state:
-                    text = text.replace("\n", " ")
-                # Note: only log the fact that text was detected, not the text itself
-                # as sometimes the mere fact of logging certain text causes the process to hang
-                # I have no idea why this happens but it's reproducible
-                self.log(f"detected text in {path}")
-                if self.append.state and self.pasteboard.has_text():
-                    self.pasteboard.append(f"\n{text}")
-                else:
-                    self.pasteboard.copy(text)
-            else:
-                self.log(f"detected no text in {path}")
+            detected_text = self.process_image(screenshot_image)
             if self.notification.state:
                 rumps.notification(
                     title="Processed Screenshot",
                     subtitle=f"{path}",
-                    message=f"Detected text: {text}" if text else "No text detected",
+                    message=f"Detected text: {detected_text}"
+                    if detected_text
+                    else "No text detected",
                 )
-            self._screenshots[path] = text
+            self._screenshots[path] = detected_text
+
+    def process_image(self, image: Quartz.CIImage) -> str:
+        """Process an image and detect text (and QR codes if requested).
+
+        Args:
+            image: Quartz.CIImage
+            path: Optional path to the image file (used for logging)
+
+        Returns:
+            String of detected text or empty string if no text detected.
+        """
+        # if "Always detect English" checked, add English to list of languages to detect
+        languages = (
+            [self.recognition_language, LANGUAGE_ENGLISH]
+            if self.language_english.state
+            and self.recognition_language != LANGUAGE_ENGLISH
+            else [self.recognition_language]
+        )
+        detected_text = detect_text_in_ciimage(image, languages=languages)
+        confidence = CONFIDENCE[self.get_confidence_state()]
+        text = "\n".join(
+            result[0] for result in detected_text if result[1] >= confidence
+        )
+
+        if self.qrcodes.state:
+            # Also detect QR codes and copy the text from the QR code payload
+            if detected_qrcodes := detect_qrcodes_in_ciimage(image):
+                text = (
+                    text + "\n" + "\n".join(detected_qrcodes)
+                    if text
+                    else "\n".join(detected_qrcodes)
+                )
+
+        if text:
+            if not self.linebreaks.state:
+                text = text.replace("\n", " ")
+            # Note: only log the fact that text was detected, not the text itself
+            # as sometimes the mere fact of logging certain text causes the process to hang
+            # I have no idea why this happens but it's reproducible
+            detected_text = True
+            if self.append.state:
+                clipboard_text = (
+                    self.pasteboard.paste() if self.pasteboard.has_text() else ""
+                )
+                clipboard_text = f"{clipboard_text}\n{text}"
+            else:
+                clipboard_text = text
+
+            if self.confirmation.state:
+                # display confirmation dialog
+                verb = "Append" if self.append.state else "Copy"
+                if rumps.alert(
+                    title=f"{verb} detected text to clipboard?",
+                    message=text,
+                    ok="Yes",
+                    cancel="No",
+                ):
+                    self.pasteboard.copy(clipboard_text)
+            else:
+                self.pasteboard.copy(clipboard_text)
+
+        return text
 
     def query_updated_(self, notif):
         """Receives and processes notifications from the Spotlight query"""
@@ -416,17 +471,36 @@ class Textinator(rumps.App):
             self.log("search: an update happened.")
             self.process_screenshot(notif)
 
-    @rumps.timer(PASTEBOARD_CHECK_INTERVAL)
-    def pasteboard_watcher(self, sender):
-        """Watch the pasteboard (clipboard) for changes"""
+    @rumps.timer(CLIPBOARD_CHECK_INTERVAL)
+    def clipboard_watcher(self, sender):
+        """Watch the clipboard (pasteboard) for changes"""
+        if not self.detect_clipboard.state:
+            return
+
         if self.pasteboard.has_changed() and self.pasteboard.has_image():
             # image is on the pasteboard, process it
-            self.log("image on pasteboard")
+            self.log("new image on clipboard")
+            if self._paused:
+                self.log("skipping clipboard image because app is paused")
+                return
             self.process_clipboard_image()
 
     def process_clipboard_image(self):
         """Process the image on the clipboard."""
-        ...
+        if image_data := self.pasteboard.get_image_data(TIFF):
+            image = Quartz.CIImage.imageWithData_(image_data)
+            detected_text = self.process_image(image)
+            self.log("processed clipboard image")
+            if self.notification.state:
+                rumps.notification(
+                    title="Processed Clipboard Image",
+                    subtitle="",
+                    message=f"Detected text: {detected_text}"
+                    if detected_text
+                    else "No text detected",
+                )
+        else:
+            self.log("failed to get image data from pasteboard")
 
 
 if __name__ == "__main__":
