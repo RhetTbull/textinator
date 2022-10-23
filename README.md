@@ -173,4 +173,6 @@ When `debug` is enabled, Textinator will log to `~/Library/Application\ Support/
 
 Most features of the app can be tested by simply running the `textinator.py` script: `python3 src/textinator.py`.  The `Services menu` feature requires the app be built and installed because it needs runtime access to information in the app bundle's `Info.plist` which is built by `py2app`.
 
+The version number is incremented by [bump2version](https://github.com/c4urself/bump2version) which is installed via `requirements.txt`.  To increment the version number, run `bumpversion patch` or `bumpversion minor` or `bumpversion major` as appropriate. See `bumpversion --help` for more information.
+
 I've tried to document the code well so that you can use Textinator as a template for your own apps. Some of the features (such as creating a Services menu item) are not well documented (especially with respect to doing these things in python) and took me a lot of trial and error to figure out. I hope that this project will help others who want to build macOS native apps in python.
