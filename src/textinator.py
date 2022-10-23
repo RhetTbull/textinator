@@ -1,5 +1,7 @@
 """Simple MacOS menu bar / status bar app that automatically perform text detection on screenshots.
 
+Also detects text on clipboard images and image files via the Services menu.
+
 Runs on Catalina (10.15) and later.
 """
 
@@ -11,7 +13,7 @@ import typing as t
 import objc
 import Quartz
 import rumps
-from AppKit import NSPasteboardTypeFileURL
+from AppKit import NSApplication, NSPasteboardTypeFileURL
 from Foundation import (
     NSURL,
     NSLog,
@@ -37,6 +39,7 @@ from macvision import (
 from pasteboard import TIFF, Pasteboard
 from utils import get_app_path, verify_desktop_access
 
+# do not manually change the version; use bump2version per the README
 __version__ = "0.9.0"
 
 APP_NAME = "Textinator"
@@ -54,7 +57,7 @@ LANGUAGE_ENGLISH = "en-US"
 # where to store saved state, will reside in Application Support/APP_NAME
 CONFIG_FILE = f"{APP_NAME}.plist"
 
-# optional logging to file if debug enabled (will always log to console via NSLog)
+# optional logging to file if debug enabled (will always log to Console via NSLog)
 LOG_FILE = f"{APP_NAME}.log"
 
 # how often (in seconds) to check for new screenshots on the clipboard
@@ -73,7 +76,12 @@ class Textinator(rumps.App):
         # pause / resume text detection
         self._paused = False
 
+        # set the icon to a PNG file in the current directory
+        # this immediately updates the menu bar icon
+        # py2app will place the icon in the app bundle Resources folder
         self.icon = APP_ICON
+
+        # the log method uses NSLog to log to the unified log
         self.log("started")
 
         # get list of supported languages for language menu
@@ -137,7 +145,7 @@ class Textinator(rumps.App):
         # load config from plist file and init menu state
         self.load_config()
 
-        # holds all screenshots already seen
+        # track all screenshots already seen
         self._screenshots = {}
 
         # Need to verify access to the Desktop folder which is the default location for screenshots
@@ -145,15 +153,14 @@ class Textinator(rumps.App):
         # and shown the message assigned to NSDesktopFolderUsageDescription in the Info.plist file
         verify_desktop_access()
 
-        self.log(__file__)
-
-        from AppKit import NSApplication
-
+        # initialize the service provider class which handles actions from the Services menu
+        # pass reference to self so the service provider can access the app's methods and state
         self.service_provider = ServiceProvider.alloc().initWithApp_(self)
+        # register the service provider with the Services menu
         NSApplication.sharedApplication().setServicesProvider_(self.service_provider)
 
-        # This will be used by clipboard_watcher() to detect changes to the pasteboard
-        # (which everyone but Apple calls the clipboard)
+        # Create a Pasteboard instance which will be used by clipboard_watcher() to detect changes
+        # to the pasteboard (which everyone but Apple calls the clipboard)
         self.pasteboard = Pasteboard()
 
         # start the spotlight query
@@ -170,7 +177,17 @@ class Textinator(rumps.App):
                 f.write(f"{datetime.datetime.now().isoformat()} - {msg}\n")
 
     def load_config(self):
-        """Load config from plist file in Application Support folder."""
+        """Load config from plist file in Application Support folder.
+
+        The usual app convention is to store config in ~/Library/Preferences but
+        rumps.App.open() provides a convenient self.open() method to access the
+        Application Support folder so that's what is used here.
+
+        The config info is saved as a plist file (property list) which is an Apple standard
+        for storing structured data. JSON or another format could be used but I stuck with
+        plist so that the config file could be easily edited manually if needed and that's
+        what is expected by macOS apps.
+        """
         self.config = {}
         with contextlib.suppress(FileNotFoundError):
             with self.open(CONFIG_FILE, "rb") as f:
@@ -193,6 +210,8 @@ class Textinator(rumps.App):
                 "detect_clipboard": True,
             }
         self.log(f"loaded config: {self.config}")
+
+        # update the menu state to match the loaded config
         self.append.state = self.config.get("append", False)
         self.linebreaks.state = self.config.get("linebreaks", True)
         self.notification.state = self.config.get("notification", True)
@@ -207,10 +226,15 @@ class Textinator(rumps.App):
         self.qrcodes.state = self.config.get("detect_qrcodes", False)
         self._debug = self.config.get("debug", False)
         self.start_on_login.state = self.config.get("start_on_login", False)
+
+        # save config because it may have been updated with default values
         self.save_config()
 
     def save_config(self):
-        """Write config to plist file in Application Support folder."""
+        """Write config to plist file in Application Support folder.
+
+        See docstring on load_config() for additional information.
+        """
         self.config["linebreaks"] = self.linebreaks.state
         self.config["append"] = self.append.state
         self.config["notification"] = self.notification.state
@@ -294,26 +318,6 @@ class Textinator(rumps.App):
             if item.title == language:
                 item.state = True
 
-    def start_query(self):
-        """Start the NSMetdataQuery Spotlight query."""
-        self.query = NSMetadataQuery.alloc().init()
-
-        # screenshots all have kMDItemIsScreenCapture set
-        self.query.setPredicate_(
-            NSPredicate.predicateWithFormat_("kMDItemIsScreenCapture = 1")
-        )
-
-        # configure the query to post notifications, which our query_updated method will handle
-        nf = NSNotificationCenter.defaultCenter()
-        nf.addObserver_selector_name_object_(
-            self,
-            "query_updated:",
-            None,
-            self.query,
-        )
-        self.query.setDelegate_(self)
-        self.query.startQuery()
-
     def on_start_on_login(self, sender):
         """Configure app to start on login or toggle this setting."""
         self.start_on_login.state = not self.start_on_login.state
@@ -349,6 +353,27 @@ class Textinator(rumps.App):
         self.query.release()
         rumps.quit_application()
 
+    def start_query(self):
+        """Start the NSMetdataQuery Spotlight query to monitor for screenshot files."""
+        self.query = NSMetadataQuery.alloc().init()
+
+        # screenshots all have metadata property kMDItemIsScreenCapture set to 1
+        # this can be viewed with the command line tool mdls
+        self.query.setPredicate_(
+            NSPredicate.predicateWithFormat_("kMDItemIsScreenCapture = 1")
+        )
+
+        # configure the query to post notifications, which our query_updated method will handle
+        nf = NSNotificationCenter.defaultCenter()
+        nf.addObserver_selector_name_object_(
+            self,
+            "query_updated:",
+            None,
+            self.query,
+        )
+        self.query.setDelegate_(self)
+        self.query.startQuery()
+
     def initialize_screenshots(self, notif):
         """Track all screenshots already seen or that existed on app startup.
 
@@ -375,7 +400,7 @@ class Textinator(rumps.App):
                 continue
 
             if self._paused:
-                # don't process screenshots if paused
+                # don't process screenshots if paused but still add to seen list
                 self.log(f"skipping screenshot because app is paused: {path}")
                 self._screenshots[path] = "__SKIPPED__"
                 continue
@@ -388,6 +413,7 @@ class Textinator(rumps.App):
                 continue
 
             detected_text = self.process_image(screenshot_image)
+            self._screenshots[path] = detected_text
             if self.notification.state:
                 rumps.notification(
                     title="Processed Screenshot",
@@ -396,14 +422,13 @@ class Textinator(rumps.App):
                     if detected_text
                     else "No text detected",
                 )
-            self._screenshots[path] = detected_text
 
     def process_image(self, image: Quartz.CIImage) -> str:
         """Process an image and detect text (and QR codes if requested).
+        Updates the clipboard with the detected text.
 
         Args:
             image: Quartz.CIImage
-            path: Optional path to the image file (used for logging)
 
         Returns:
             String of detected text or empty string if no text detected.
@@ -433,10 +458,6 @@ class Textinator(rumps.App):
         if text:
             if not self.linebreaks.state:
                 text = text.replace("\n", " ")
-            # Note: only log the fact that text was detected, not the text itself
-            # as sometimes the mere fact of logging certain text causes the process to hang
-            # I have no idea why this happens but it's reproducible
-            detected_text = True
             if self.append.state:
                 clipboard_text = (
                     self.pasteboard.paste() if self.pasteboard.has_text() else ""
@@ -461,7 +482,10 @@ class Textinator(rumps.App):
         return text
 
     def query_updated_(self, notif):
-        """Receives and processes notifications from the Spotlight query"""
+        """Receives and processes notifications from the Spotlight query.
+        The trailing _ in the name is required by PyObjC to conform to Objective-C calling conventions.
+        Reference: https://pyobjc.readthedocs.io/en/latest/core/intro.html#underscores-and-lots-of-them
+        """
         if notif.name() == NSMetadataQueryDidStartGatheringNotification:
             # The query has just started
             self.log("search: query started")
@@ -480,7 +504,11 @@ class Textinator(rumps.App):
 
     @rumps.timer(CLIPBOARD_CHECK_INTERVAL)
     def clipboard_watcher(self, sender):
-        """Watch the clipboard (pasteboard) for changes"""
+        """Watch the clipboard (pasteboard) for changes.
+        Uses rumps.timer decorator to run every CLIPBOARD_CHECK_INTERVAL seconds.
+        The timer runs even if detect_clipboard is not checked or app is paused
+        but won't process images in those cases.
+        """
         if not self.detect_clipboard.state:
             return
 
@@ -511,7 +539,7 @@ class Textinator(rumps.App):
 
 
 def serviceSelector(fn):
-    # this is the signature of service selectors
+    """Decorator to convert a method to a selector to handle an NSServices message."""
     return objc.selector(fn, signature=b"v@:@@o^@")
 
 
@@ -538,14 +566,32 @@ class ServiceProvider(NSObject):
     def detectTextInImage_userData_error_(
         self, pasteboard, userdata, error
     ) -> t.Optional[str]:
-        """Detect text in an image on the clipboard."""
-        self.app.log("detectTextInImage_userData_error_ called via Services menu")
+        """Detect text in an image on the clipboard.
 
-        if self.app._paused:
-            self.app.log("skipping text detection because app is paused")
+        This method will be called by the Services menu when the user selects "Detect text with Textinator".
+        It is specified in the setup.py NSMessage attribute. The method name in NSMessage is `detectTextInImage`
+        but the actual Objective-C signature is `detectTextInImage:userData:error:` hence the matching underscores
+        in the python method name.
+
+        Args:
+            pasteboard: NSPasteboard object containing the URLs of the image files to process
+            userdata: Unused, passed by the Services menu as value of NSUserData attribute in setup.py;
+                can be used to pass additional data to the service if needed
+            error: Unused; in Objective-C, error is a pointer to an NSError object that will be set if an error occurs;
+                when using pyobjc, errors are returned as str values and the actual error argument is ignored.
+
+        Returns:
+            error: str value containing the error message if an error occurs, otherwise None
+
+        Note: because this method is explicitly invoked by the user via the Services menu, it will
+        be called and files processed even if the app is paused.
+
+        """
+        self.app.log("detectTextInImage_userData_error_ called via Services menu")
 
         try:
             for item in pasteboard.pasteboardItems():
+                # pasteboard will contain one or more URLs to image files passed by the Services menu
                 pb_url_data = item.dataForType_(NSPasteboardTypeFileURL)
                 pb_url = NSURL.URLWithString_(
                     NSString.alloc().initWithData_encoding_(
