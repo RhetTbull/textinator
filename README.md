@@ -64,7 +64,7 @@ To upgrade to the latest version, download the latest installer DMG from [releas
 
 ## Settings
 
-- `Text detection threshold confidence`: The confidence threshold for text detection.  The higher the value, the more accurate the text detection will be but a higher setting may result in some text not being detected (because the detected text was below the specified threshold). The default value is 'Low' which is equivalent to a [VNRecognizeTextRequest](https://developer.apple.com/documentation/vision/vnrecognizetextrequest?language=objc) confidence threshold of `0.3` (Medium = `0.5`, Migh = `0.8`).
+- `Text detection threshold confidence`: The confidence threshold for text detection.  The higher the value, the more accurate the text detection will be but a higher setting may result in some text not being detected (because the detected text was below the specified threshold). The default value is 'Low' which is equivalent to a [VNRecognizeTextRequest](https://developer.apple.com/documentation/vision/vnrecognizetextrequest?language=objc) confidence threshold of `0.3` (Medium = `0.5`, High = `0.8`).
 - `Text recognition language`: Select language for text recognition (languages listed by [ISO code](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) and are limited to those which your version of macOS supports).
 - `Always detect English`: If checked, always attempts to detect English text in addition to the primary language selected by `Text recognition language` setting.
 - `Detect text in images on clipboard`: If checked, Textinator will monitor the clipboard for changes and detect any text in any images copied to the clipboard.  This feature can be disabled by unchecking the "Detect text in images on clipboard" checkbox in the menu.
