@@ -535,7 +535,9 @@ class ServiceProvider(NSObject):
         return self
 
     @serviceSelector
-    def detectTextInImage_userData_error_(self, pasteboard, userdata, error) -> None:
+    def detectTextInImage_userData_error_(
+        self, pasteboard, userdata, error
+    ) -> t.Optional[str]:
         """Detect text in an image on the clipboard."""
         self.app.log("detectTextInImage_userData_error_ called via Services menu")
 
@@ -552,7 +554,15 @@ class ServiceProvider(NSObject):
                 )
                 self.app.log(f"processing file from Services menu: {pb_url.path()}")
                 image = Quartz.CIImage.imageWithContentsOfURL_(pb_url)
-                self.app.process_image(image)
+                detected_text = self.app.process_image(image)
+                if self.app.notification.state:
+                    rumps.notification(
+                        title="Processed Image}",
+                        subtitle=f"{pb_url.path()}",
+                        message=f"Detected text: {detected_text}"
+                        if detected_text
+                        else "No text detected",
+                    )
         except Exception as e:
             return ErrorValue(e)
 
