@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>always_detect_english</key>
+	<integer>1</integer>
+	<key>append</key>
+	<integer>0</integer>
+	<key>confidence</key>
+	<string>LOW</string>
+	<key>confirmation</key>
+	<integer>0</integer>
+	<key>debug</key>
+	<true/>
+	<key>detect_clipboard</key>
+	<integer>1</integer>
+	<key>detect_qrcodes</key>
+	<integer>0</integer>
+	<key>language</key>
+	<string>en-US</string>
+	<key>linebreaks</key>
+	<integer>1</integer>
+	<key>notification</key>
+	<integer>1</integer>
+	<key>start_on_login</key>
+	<integer>0</integer>
+</dict>
+</plist>
