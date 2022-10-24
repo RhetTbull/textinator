@@ -1,13 +1,12 @@
 """Test configuration for pytest for Textinator tests."""
+
 import os
 import pathlib
-import plistlib
 import shutil
 import tempfile
 import time
 import typing as t
 from contextlib import contextmanager
-from functools import partial
 from io import TextIOWrapper
 
 import applescript
@@ -26,7 +25,20 @@ def ask(message):
 
 
 def click_menu_item(menu_item: str):
-    """Click menu_item in Textinator's status bar menu"""
+    """Click menu_item in Textinator's status bar menu.
+
+    This uses AppleScript and System Events to click on the menu item.
+
+    Args:
+        menu_item: Name of menu item to click.
+
+    Returns:
+        True if menu item was successfully clicked, False otherwise.
+
+    Note: in many status bar apps, the actual menu bar you want to click is menu bar 2;
+    menu bar 1 is the Apple menu. In RUMPS apps, it appears that the menu bar you want is
+    menu bar 1. This may be different for other apps.
+    """
     scpt = applescript.AppleScript(
         """
     on click_menu_item(menu_item_name_)
@@ -48,7 +60,21 @@ def click_menu_item(menu_item: str):
 
 
 def click_sub_menu_item(menu_item: str, sub_menu_item: str):
-    """Click sub_menu_item of menu_item in Textinator's status bar menu"""
+    """Click sub_menu_item of menu_item in Textinator's status bar menu
+
+    This uses AppleScript and System Events to click on the menu item.
+
+    Args:
+        menu_item: Name of menu item to click.
+        sub_menu_item: Name of sub menu item to click.
+
+    Returns:
+        True if menu item was successfully clicked, False otherwise.
+
+    Note: in many status bar apps, the actual menu bar you want to click is menu bar 2;
+    menu bar 1 is the Apple menu. In RUMPS apps, it appears that the menu bar you want is
+    menu bar 1. This may be different for other apps.
+    """
     scpt = applescript.AppleScript(
         """
     on click_sub_menu_item(menu_item_name_, submenu_item_name_)
@@ -72,7 +98,7 @@ def click_sub_menu_item(menu_item: str, sub_menu_item: str):
 
 @contextmanager
 def copy_to_desktop(filepath):
-    """Fixture to copy file to Desktop in a temporary directory"""
+    """Fixture to copy file to Desktop in a temporary directory."""
     filepath = pathlib.Path(filepath)
     desktop_path = pathlib.Path("~/Desktop").expanduser()
     with tempfile.TemporaryDirectory(dir=desktop_path, prefix="Textinator-") as tempdir:
@@ -154,6 +180,7 @@ def setup_teardown():
 
     # backup_log()
     backup_plist()
+
     shutil.copy("tests/data/Textinator.plist", app_support_dir() / "Textinator.plist")
 
     login_item = "Textinator" in list_login_items()

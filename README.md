@@ -185,3 +185,5 @@ Textinator uses [pytest](https://docs.pytest.org/en/7.1.x/) to run unit tests.  
 The test suite requires the built app to be installed in `/Applications/Textinator.app`. Before running tests, uses `./build.sh` to build the app then copy `dist/Textinator.app` to `/Applications/Textinator.app`.
 
 The tests will modify the Textinator preferences but will backup your original preferences and restore them when testing is completed. The tests will also modify the clipboard and will create temporary files on the Desktop which will be cleaned up when testing is completed.
+
+The test suite is slow due to required sleeps to allow the app to respond, Spotlight to index new files, etc. Because the test suite interacts with the user interface, it is best not to touch the keyboard or mouse while the tests are running.
