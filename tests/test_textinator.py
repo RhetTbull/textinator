@@ -2,6 +2,8 @@
 
 from time import sleep
 
+import pytest
+
 from .conftest import (
     ask,
     click_menu_item,
@@ -17,13 +19,6 @@ TEST_FILE_HELLO = "tests/data/hello.png"
 TEST_FILE_WORLD = "tests/data/world.png"
 TEST_QRCODE = "tests/data/qrcode.png"
 TEST_QRCODE_WITH_TEXT = "tests/data/qrcode_with_text.png"
-
-# def test_about(suspend_capture):
-#     """Test About dialog"""
-#     assert click_menu_item("About Textinator")
-
-#     with suspend_capture:
-#         ask("Press Enter to continue after closing the About dialog")
 
 
 def test_screenshot_basic(pb):
@@ -167,3 +162,12 @@ def test_clipboard_no_clipboard(pb):
     sleep(5)
     assert pb.get_text() == ""
     assert click_menu_item("Detect text in images on clipboard")
+
+
+@pytest.mark.interactive
+def test_about(suspend_capture):
+    """Test About dialog"""
+    assert click_menu_item("About Textinator")
+
+    with suspend_capture:
+        ask("Press Enter to continue after closing the About dialog")
