@@ -206,7 +206,7 @@ def setup_teardown():
     restore_plist()
 
     if login_item:
-        add_login_item("Textinator")
+        add_login_item("Textinator", "/Applications/Textinator.app", False)
 
     os.system("open -a Textinator")
 
