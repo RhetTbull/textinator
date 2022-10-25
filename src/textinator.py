@@ -515,6 +515,11 @@ class Textinator(rumps.App):
         if self.pasteboard.has_changed() and self.pasteboard.has_image():
             # image is on the pasteboard, process it
             self.log("new image on clipboard")
+            if self.pasteboard.has_text():
+                # some apps like Excel copy an image representation of the text to the clipboard
+                # in addition to the text, in this case do not do text detection, see #16
+                self.log("clipboard has text, skipping")
+                return
             if self._paused:
                 self.log("skipping clipboard image because app is paused")
                 return
