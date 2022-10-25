@@ -141,9 +141,10 @@ This project follows the [all-contributors](https://github.com/all-contributors/
 
 If you want to build Textinator yourself, here are some notes:
 
-Install requirements via pip:
+Install requirements and development requirements via pip:
 
 `python3 -m pip install -r requirements.txt`
+`python3 -m pip install -r dev_requirements.txt`
 
 Building the DMG for distribution requires [create-dmg](https://github.com/create-dmg/create-dmg) which can be installed with [homebrew](https://brew.sh/):
 
@@ -173,6 +174,16 @@ When `debug` is enabled, Textinator will log to `~/Library/Application\ Support/
 
 Most features of the app can be tested by simply running the `textinator.py` script: `python3 src/textinator.py`.  The `Services menu` feature requires the app be built and installed because it needs runtime access to information in the app bundle's `Info.plist` which is built by `py2app`.
 
-The version number is incremented by [bump2version](https://github.com/c4urself/bump2version) which is installed via `requirements.txt`.  To increment the version number, run `bumpversion patch` or `bumpversion minor` or `bumpversion major` as appropriate. See `bumpversion --help` for more information.
+The version number is incremented by [bump2version](https://github.com/c4urself/bump2version) which is installed via `python3 -m pip install -r dev_requirements.txt`.  To increment the version number, run `bumpversion patch` or `bumpversion minor` or `bumpversion major` as appropriate. See `bumpversion --help` for more information.
 
 I've tried to document the code well so that you can use Textinator as a template for your own apps. Some of the features (such as creating a Services menu item) are not well documented (especially with respect to doing these things in python) and took me a lot of trial and error to figure out. I hope that this project will help others who want to build macOS native apps in python.
+
+## Testing
+
+Textinator uses [pytest](https://docs.pytest.org/en/7.1.x/) to run unit tests.  To run the tests, run `pytest` from the project root directory. Before running the tests, you'll need to install the development requirements via `python3 -m pip install -r dev_requirements.txt`. You will also need to enable your Terminal app to control your computer in `System Preferences > Security & Privacy > Privacy > Accessibility`. This is because the testing uses System Events scripting via applescript to simulate user actions such as clicking menu items.
+
+The test suite requires the built app to be installed in `/Applications/Textinator.app`. Before running tests, uses `./build.sh` to build the app then copy `dist/Textinator.app` to `/Applications/Textinator.app`.
+
+The tests will modify the Textinator preferences but will backup your original preferences and restore them when testing is completed. The tests will also modify the clipboard and will create temporary files on the Desktop which will be cleaned up when testing is completed.
+
+The test suite is slow due to required sleeps to allow the app to respond, Spotlight to index new files, etc. Because the test suite interacts with the user interface, it is best not to touch the keyboard or mouse while the tests are running.

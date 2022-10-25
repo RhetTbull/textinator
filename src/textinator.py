@@ -106,11 +106,11 @@ class Textinator(rumps.App):
         )
         self.qrcodes = rumps.MenuItem("Detect QR codes", self.on_toggle)
         self.pause = rumps.MenuItem("Pause text detection", self.on_pause)
-        self.notification = rumps.MenuItem("Notification", self.on_toggle)
+        self.show_notification = rumps.MenuItem("Notification", self.on_toggle)
         self.linebreaks = rumps.MenuItem("Keep linebreaks", self.on_toggle)
         self.append = rumps.MenuItem("Append to clipboard", self.on_toggle)
         self.clear_clipboard = rumps.MenuItem(
-            "Clear Clipboard", self.on_clear_clipboard
+            "Clear clipboard", self.on_clear_clipboard
         )
         self.confirmation = rumps.MenuItem("Confirm clipboard changes", self.on_toggle)
         self.start_on_login = rumps.MenuItem(
@@ -130,7 +130,7 @@ class Textinator(rumps.App):
             None,
             self.qrcodes,
             None,
-            self.notification,
+            self.show_notification,
             None,
             self.linebreaks,
             self.append,
@@ -214,7 +214,7 @@ class Textinator(rumps.App):
         # update the menu state to match the loaded config
         self.append.state = self.config.get("append", False)
         self.linebreaks.state = self.config.get("linebreaks", True)
-        self.notification.state = self.config.get("notification", True)
+        self.show_notification.state = self.config.get("notification", True)
         self.set_confidence_state(self.config.get("confidence", CONFIDENCE_DEFAULT))
         self.recognition_language = self.config.get(
             "language", self.recognition_language
@@ -237,7 +237,7 @@ class Textinator(rumps.App):
         """
         self.config["linebreaks"] = self.linebreaks.state
         self.config["append"] = self.append.state
-        self.config["notification"] = self.notification.state
+        self.config["notification"] = self.show_notification.state
         self.config["confidence"] = self.get_confidence_state()
         self.config["language"] = self.recognition_language
         self.config["always_detect_english"] = self.language_english.state
@@ -414,8 +414,8 @@ class Textinator(rumps.App):
 
             detected_text = self.process_image(screenshot_image)
             self._screenshots[path] = detected_text
-            if self.notification.state:
-                rumps.notification(
+            if self.show_notification.state:
+                self.notification(
                     title="Processed Screenshot",
                     subtitle=f"{path}",
                     message=f"Detected text: {detected_text}"
@@ -526,8 +526,8 @@ class Textinator(rumps.App):
             image = Quartz.CIImage.imageWithData_(image_data)
             detected_text = self.process_image(image)
             self.log("processed clipboard image")
-            if self.notification.state:
-                rumps.notification(
+            if self.show_notification.state:
+                self.notification(
                     title="Processed Clipboard Image",
                     subtitle="",
                     message=f"Detected text: {detected_text}"
@@ -536,6 +536,11 @@ class Textinator(rumps.App):
                 )
         else:
             self.log("failed to get image data from pasteboard")
+
+    def notification(self, title, subtitle, message):
+        """Display a notification."""
+        self.log(f"notification: {title} - {subtitle} - {message}")
+        rumps.notification(title, subtitle, message)
 
 
 def serviceSelector(fn):
@@ -601,9 +606,9 @@ class ServiceProvider(NSObject):
                 self.app.log(f"processing file from Services menu: {pb_url.path()}")
                 image = Quartz.CIImage.imageWithContentsOfURL_(pb_url)
                 detected_text = self.app.process_image(image)
-                if self.app.notification.state:
-                    rumps.notification(
-                        title="Processed Image}",
+                if self.app.show_notification.state:
+                    self.app.notification(
+                        title="Processed Image",
                         subtitle=f"{pb_url.path()}",
                         message=f"Detected text: {detected_text}"
                         if detected_text
