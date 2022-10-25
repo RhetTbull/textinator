@@ -19,35 +19,6 @@ from .loginitems import add_login_item, list_login_items, remove_login_item
 from .pasteboard import Pasteboard
 
 
-def pytest_addoption(parser):
-    parser.addoption(
-        "--interactive",
-        action="store_true",
-        default=False,
-        help="run tests that require user interaction",
-    )
-
-
-def pytest_configure(config):
-    config.addinivalue_line(
-        "markers", "interactive: mark test as requiring --interactive to run"
-    )
-
-
-def pytest_collection_modifyitems(config, items):
-    if not config.getoption("--interactive"):
-        skip_interactive = pytest.mark.skip(reason="need --interactive option to run")
-        for item in items:
-            if "interactive" in item.keywords:
-                item.add_marker(skip_interactive)
-
-
-def ask(message):
-    """Ask user a question"""
-    os.system(f"say {message}")
-    return input(f"\n{message}").lower()
-
-
 def click_menu_item(menu_item: str, sub_menu_item: t.Optional[str] = None) -> bool:
     """Click menu_item in Textinator's status bar menu.
 
