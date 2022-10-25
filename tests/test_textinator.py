@@ -1,17 +1,17 @@
 """Tests for Textinator"""
 
+import os
 from time import sleep
 
-import pytest
-
 from .conftest import (
-    ask,
     click_menu_item,
-    click_sub_menu_item,
+    click_window_button,
     copy_to_desktop,
     log_file,
     mark_screenshot,
+    process_is_running,
 )
+from .loginitems import list_login_items, remove_login_item
 
 TEST_FILE_HELLO_WORLD = "tests/data/hello_world.png"
 TEST_FILE_HELLO_WORLD_LINEBREAK = "tests/data/hello_world_linebreaks.png"
@@ -76,14 +76,14 @@ def test_screenshot_qrcode(pb):
     """Test screenshot detection with QR code"""
     assert click_menu_item("Detect QR codes")
     # set confidence to high because sometimes the QR code is detected as text
-    assert click_sub_menu_item("Text detection confidence threshold", "High")
+    assert click_menu_item("Text detection confidence threshold", "High")
     pb.clear()
     with copy_to_desktop(TEST_QRCODE) as filepath:
         mark_screenshot(filepath)
         sleep(5)
         assert pb.get_text() == "https://github.com/RhetTbull/textinator"
     assert click_menu_item("Detect QR codes")
-    assert click_sub_menu_item("Text detection confidence threshold", "Low")
+    assert click_menu_item("Text detection confidence threshold", "Low")
 
 
 def test_screenshot_qrcode_with_text(pb):
@@ -134,14 +134,14 @@ def test_confidence(pb):
     """Test text detection confidence menu"""
     pb.clear()
     with log_file() as log:
-        assert click_sub_menu_item("Text detection confidence threshold", "Medium")
+        assert click_menu_item("Text detection confidence threshold", "Medium")
         sleep(5)
         assert "'confidence': 'MEDIUM'" in log.read()
         with copy_to_desktop(TEST_FILE_HELLO_WORLD) as filepath:
             mark_screenshot(filepath)
             sleep(5)
             assert pb.get_text() == "Hello World"
-        assert click_sub_menu_item("Text detection confidence threshold", "Low")
+        assert click_menu_item("Text detection confidence threshold", "Low")
         sleep(5)
         assert "'confidence': 'LOW'" in log.read()
 
@@ -164,10 +164,68 @@ def test_clipboard_no_clipboard(pb):
     assert click_menu_item("Detect text in images on clipboard")
 
 
-@pytest.mark.interactive
-def test_about(suspend_capture):
+def test_clear_clipboard(pb):
+    """Test Clear clipboard menu item works"""
+    pb.set_text("Hello World")
+    assert click_menu_item("Clear clipboard")
+    sleep(5)
+    assert pb.get_text() == ""
+
+
+def test_confirm_clipboard_changes_yes(pb):
+    """Test Confirm clipboard changes menu item works when pressing Yes"""
+    pb.clear()
+    with log_file() as log:
+        assert click_menu_item("Confirm clipboard changes")
+        sleep(5)
+        assert "'confirmation': 1" in log.read()
+    with copy_to_desktop(TEST_FILE_HELLO_WORLD) as filepath:
+        mark_screenshot(filepath)
+        sleep(5)
+        assert click_window_button(1, 1)  # button 1 is Yes
+        sleep(5)
+        assert pb.get_text() == "Hello World"
+    assert click_menu_item("Confirm clipboard changes")
+
+
+def test_confirm_clipboard_changes_no(pb):
+    """Test Confirm clipboard changes menu item works when pressing No"""
+    pb.set_text("Nope")
+    with log_file() as log:
+        assert click_menu_item("Confirm clipboard changes")
+        sleep(5)
+        assert "'confirmation': 1" in log.read()
+    with copy_to_desktop(TEST_FILE_HELLO_WORLD) as filepath:
+        mark_screenshot(filepath)
+        sleep(5)
+        assert click_window_button(1, 2)  # button 2 is "No"
+        sleep(5)
+        assert pb.get_text() == "Nope"
+    assert click_menu_item("Confirm clipboard changes")
+
+
+def test_enable_start_on_login():
+    """Test Start Textinator on login menu item works"""
+    # setup_teardown() should have removed the login item if it existed
+    assert "Textinator" not in list_login_items()
+    assert click_menu_item("Start Textinator on login")
+    sleep(5)
+    assert "Textinator" in list_login_items()
+    assert click_menu_item("Start Textinator on login")
+    sleep(5)
+    assert "Textinator" not in list_login_items()
+
+
+def test_about():
     """Test About dialog"""
     assert click_menu_item("About Textinator")
+    assert click_window_button(1, 1)
 
-    with suspend_capture:
-        ask("Press Enter to continue after closing the About dialog")
+
+def test_quit():
+    """Test Quit menu item"""
+    assert process_is_running("Textinator")
+    assert click_menu_item("Quit Textinator")
+    sleep(5)
+    assert not process_is_running("Textinator")
+    os.system("open -a Textinator")

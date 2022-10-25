@@ -12,6 +12,7 @@ from io import TextIOWrapper
 import applescript
 import CoreServices
 import pytest
+from applescript import kMissingValue
 from osxmetadata.mditem import set_mditem_metadata
 
 from .loginitems import add_login_item, list_login_items, remove_login_item
@@ -47,13 +48,14 @@ def ask(message):
     return input(f"\n{message}").lower()
 
 
-def click_menu_item(menu_item: str):
+def click_menu_item(menu_item: str, sub_menu_item: t.Optional[str] = None) -> bool:
     """Click menu_item in Textinator's status bar menu.
 
     This uses AppleScript and System Events to click on the menu item.
 
     Args:
         menu_item: Name of menu item to click.
+        sub_menu_item: Name of sub menu item to click or None if no sub menu item.
 
     Returns:
         True if menu item was successfully clicked, False otherwise.
@@ -64,12 +66,15 @@ def click_menu_item(menu_item: str):
     """
     scpt = applescript.AppleScript(
         """
-    on click_menu_item(menu_item_name_)
+    on click_menu_item(process_, menu_item_name_, submenu_item_name_)
         try
-            tell application "System Events" to tell process "Textinator"
+            tell application "System Events" to tell process process_
                 tell menu bar item 1 of menu bar 1
                     click
                     click menu item menu_item_name_ of menu 1
+                    if submenu_item_name_ is not missing value then
+                        click menu item submenu_item_name_ of menu 1 of menu item menu_item_name_ of menu 1
+                    end if
                 end tell
             end tell
         on error
@@ -79,44 +84,52 @@ def click_menu_item(menu_item: str):
     end click_menu_item
     """
     )
-    return scpt.call("click_menu_item", menu_item)
+    sub_menu_item = sub_menu_item or kMissingValue
+    return scpt.call("click_menu_item", "Textinator", menu_item, sub_menu_item)
 
 
-def click_sub_menu_item(menu_item: str, sub_menu_item: str):
-    """Click sub_menu_item of menu_item in Textinator's status bar menu
-
-    This uses AppleScript and System Events to click on the menu item.
+def click_window_button(window: int, button: int) -> bool:
+    """ "Click a button in a Textinator window.
 
     Args:
-        menu_item: Name of menu item to click.
-        sub_menu_item: Name of sub menu item to click.
+        window: window number (1 = first window)
+        button: button number (1 = first button, if yes/no, 1 = yes, 2 = no)
 
     Returns:
-        True if menu item was successfully clicked, False otherwise.
-
-    Note: in many status bar apps, the actual menu bar you want to click is menu bar 2;
-    menu bar 1 is the Apple menu. In RUMPS apps, it appears that the menu bar you want is
-    menu bar 1. This may be different for other apps.
+        True if successful, False otherwise
     """
     scpt = applescript.AppleScript(
         """
-    on click_sub_menu_item(menu_item_name_, submenu_item_name_)
-        try
-            tell application "System Events" to tell process "Textinator"
-                tell menu bar item 1 of menu bar 1
-                    click
-                    click menu item menu_item_name_ of menu 1
-                    click menu item submenu_item_name_ of menu 1 of menu item menu_item_name_ of menu 1
+        on click_window_button(process_, window_number_, button_number_)
+            try
+                tell application "System Events" to tell process process_
+                    tell button button_number_ of window window_number_
+                        click
+                    end tell
                 end tell
-            end tell
-        on error
-            return false
-        end try
-        return true
-    end click_sub_menu_item
+            on error
+                return false
+            end try
+            return true
+        end click_window_button
     """
     )
-    return scpt.call("click_sub_menu_item", menu_item, sub_menu_item)
+    return scpt.call("click_window_button", "Textinator", window, button)
+
+
+def process_is_running(process_name: str) -> bool:
+    """Return True if process_name is running, False otherwise"""
+    scpt = applescript.AppleScript(
+        """
+        on process_is_running(process_name_)
+            tell application "System Events"
+                set process_list to (name of every process)
+            end tell
+            return process_name_ is in process_list
+        end process_is_running
+    """
+    )
+    return scpt.call("process_is_running", process_name)
 
 
 @contextmanager

@@ -110,7 +110,7 @@ class Textinator(rumps.App):
         self.linebreaks = rumps.MenuItem("Keep linebreaks", self.on_toggle)
         self.append = rumps.MenuItem("Append to clipboard", self.on_toggle)
         self.clear_clipboard = rumps.MenuItem(
-            "Clear Clipboard", self.on_clear_clipboard
+            "Clear clipboard", self.on_clear_clipboard
         )
         self.confirmation = rumps.MenuItem("Confirm clipboard changes", self.on_toggle)
         self.start_on_login = rumps.MenuItem(
