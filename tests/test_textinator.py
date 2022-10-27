@@ -154,6 +154,16 @@ def test_clipboard_basic(pb):
     assert pb.get_text() == "Hello World"
 
 
+def test_clipboard_text_and_image(pb):
+    """Test clipboard detection when clipboard has text and image (#16)"""
+    pb.clear()
+    with log_file() as log:
+        pb.set_text_and_image("Alt Text", TEST_FILE_HELLO_WORLD, "PNG")
+        sleep(5)
+        assert "clipboard has text, skipping" in log.read()
+        assert pb.get_text() == "Alt Text"
+
+
 def test_clipboard_no_clipboard(pb):
     """Test clipboard detection does not run when "Detect text in images on clipboard" is off"""
     assert click_menu_item("Detect text in images on clipboard")

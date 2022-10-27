@@ -1,4 +1,13 @@
-"""macOS Pasteboard/Clipboard access using native APIs"""
+"""macOS Pasteboard/Clipboard access using native APIs
+
+Author: Rhet Turnbull <rturnbull+git@gmail.com>
+
+License: MIT License, copyright 2022 Rhet Turnbull
+
+Original Source: https://github.com/RhetTbull/textinator
+
+Version: 1.1.0, 2022-10-26
+"""
 
 import os
 import typing as t
@@ -189,6 +198,35 @@ class Pasteboard:
         format_type = NSPasteboardTypePNG if format == PNG else NSPasteboardTypeTIFF
         self.pasteboard.clearContents()
         self.pasteboard.setData_forType_(image_data, format_type)
+        self._change_count = self.pasteboard.changeCount()
+
+    def set_text_and_image(
+        self, text: str, filename: t.Union[str, os.PathLike], format: str
+    ):
+        """Set both text from str and image from file in either PNG or TIFF format
+
+        Args:
+            text (str): Text to set on clipboard
+            filename (os.PathLike): Filename of image to set on clipboard
+            format (str): Format of image to set, "PNG" or "TIFF"
+        """
+        if not isinstance(filename, str):
+            filename = str(filename)
+        data = NSData.dataWithContentsOfFile_(filename)
+        self.set_text_and_image_data(text, data, format)
+
+    def set_text_and_image_data(self, text: str, image_data: NSData, format: str):
+        """Set both text and image data on clipboard from NSData in a supported image format
+
+        Args:
+            text (str): Text to set on clipboard
+            image_data (NSData): Image data to set on clipboard
+            format (str): Format of image to set, "PNG" or "TIFF"
+
+        Raises: PasteboardTypeError if format is not "PNG" or "TIFF"
+        """
+        self.set_image_data(image_data, format)
+        self.pasteboard.setString_forType_(text, NSPasteboardTypeString)
         self._change_count = self.pasteboard.changeCount()
 
     def has_changed(self) -> bool:
