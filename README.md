@@ -60,7 +60,7 @@ To upgrade to the latest version, download the latest installer DMG from [releas
 
 - Textinator can also monitor the clipboard for changes which means you can also copy an image from any app or press Control + ⌘ + ⇧ + 4 (`Ctrl + Cmd + Shift + 4`) to take a screenshot and copy it to the clipboard without creating a screenshot file. Textinator will then detect any text in the image and copy it to the clipboard, overwriting the copied image. This feature can be disabled by unchecking the "Detect text in images on clipboard" checkbox in the menu.
 
-- You can also use Textinator from the [Services menu](https://macreports.com/what-is-the-services-menu-in-macos/) in Finder.
+- You can also use Textinator from the [Services menu](https://macreports.com/what-is-the-services-menu-in-macos/) in Finder (and other apps). To use this feature, right click on an image file in Finder and select `Services > Detect text with Textinator` from the context menu. Alternatively, you can select `Finder > Services > Detect text with Textinator` from the menu bar.
 
 ## Settings
 
