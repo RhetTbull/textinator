@@ -105,7 +105,7 @@ Textinator can also monitor the clipboard and detect text in images copied to th
 
 - If building with [pyenv](https://github.com/pyenv/pyenv) installed python, you'll need to build the python with framework support:
   - `env PYTHON_CONFIGURE_OPTS="--enable-framework" pyenv install -v 3.9.11`
-- Requires a minimum of macOS Catalina (10.15).  Tested on macOS Catalina (10.15.7) and Big Sur (11.6.4); should work on Catalina or newer.
+- Requires a minimum of macOS Catalina (10.15).  Tested on macOS Catalina (10.15.7), Big Sur (11.6.4), Ventura (13.5.1); should work on Catalina or newer.
 
 ## License
 

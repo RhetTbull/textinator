@@ -9,7 +9,7 @@ test -d dist && rm -rf dist/
 test -d build && rm -rf build/
 
 echo "Running py2app"
-python setup.py py2app
+python3 setup.py py2app
 
 # sign with ad-hoc certificate (if you have an Apple Developer ID, you can use your developer certificate instead)
 # for the app to send AppleEvents to other apps, it needs to be signed and include the
