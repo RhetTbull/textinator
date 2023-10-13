@@ -11,6 +11,8 @@ test -d build && rm -rf build/
 echo "Running py2app"
 python3 setup.py py2app
 
+# TODO: this doesn't appear to be needed (only for sandboxed apps)
+# py2app will sign the app with the ad-hoc certificate
 # sign with ad-hoc certificate (if you have an Apple Developer ID, you can use your developer certificate instead)
 # for the app to send AppleEvents to other apps, it needs to be signed and include the
 # com.apple.security.automation.apple-events entitlement in the entitlements file
@@ -19,14 +21,15 @@ python3 setup.py py2app
 # --options=runtime: Preserve the hardened runtime version
 # --entitlements: use specified the entitlements file
 # -s -: sign the code at the path(s) given using this identity; "-" means use the ad-hoc certificate
-echo "Signing with codesign"
-codesign \
-  --force \
-  --deep \
-  --options=runtime \
-  --entitlements=script.entitlements entitlements.plist \
-  -s - \
-  dist/Textinator.app
+# echo "Signing with codesign"
+# codesign \
+#   --force \
+#   --deep \
+#   --options=runtime \
+#   --preserve-metadata=identifier,entitlements,flags,runtime \
+#   --entitlements=entitlements.plist \
+#   -s - \
+#   dist/Textinator.app
 
 # create installer DMG
 # to add a background image to the DMG, add the following to the create-dmg command:
