@@ -1,7 +1,8 @@
 """Utilities for working with System Preferences > Users & Groups > Login Items on macOS."""
 
-import applescript
 from typing import List
+
+import applescript
 
 __all__ = ["add_login_item", "list_login_items", "remove_login_item"]
 
@@ -32,4 +33,3 @@ def list_login_items() -> List[str]:
     """Return list of login items"""
     scpt = 'tell application "System Events" to get the name of every login item'
     return applescript.AppleScript(scpt).run()
-
