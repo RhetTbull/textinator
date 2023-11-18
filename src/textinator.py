@@ -145,6 +145,9 @@ class Textinator(rumps.App):
         # load config from plist file and init menu state
         self.load_config()
 
+        # set icon to auto switch between light and dark mode
+        self.template = True
+
         # track all screenshots already seen
         self._screenshots = {}
 
