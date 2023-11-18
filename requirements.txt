@@ -1,9 +1,9 @@
 py-applescript==1.0.3 
 py2app>=0.28.6
 pyobjc-core>=9.2
-pyobjc-framework-cocoa>=9.2;
+pyobjc-framework-cocoa>=9.2
 pyobjc-framework-coreml>=9.2
 pyobjc-framework-quartz>=9.2
 pyobjc-framework-vision>=9.2
-rumps==0.4.0
-wheel==0.41.2
+rumps>=0.4.0,<0.5.0
+wheel>=0.41.2
