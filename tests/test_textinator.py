@@ -192,7 +192,7 @@ def test_confirm_clipboard_changes_yes(pb):
     with copy_to_desktop(TEST_FILE_HELLO_WORLD) as filepath:
         mark_screenshot(filepath)
         sleep(5)
-        assert click_window_button(1, 1)  # button 1 is Yes
+        assert click_window_button(1, 2)  # button 1 is Yes
         sleep(5)
         assert pb.get_text() == "Hello World"
     assert click_menu_item("Confirm clipboard changes")
@@ -208,7 +208,7 @@ def test_confirm_clipboard_changes_no(pb):
     with copy_to_desktop(TEST_FILE_HELLO_WORLD) as filepath:
         mark_screenshot(filepath)
         sleep(5)
-        assert click_window_button(1, 2)  # button 2 is "No"
+        assert click_window_button(1, 1)  # button 2 is "No"
         sleep(5)
         assert pb.get_text() == "Nope"
     assert click_menu_item("Confirm clipboard changes")
