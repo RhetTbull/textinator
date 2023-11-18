@@ -29,6 +29,8 @@ Alternatively, to build from source:
 - Copy dist/textinator.app to /Applications
 - Follow instructions below to grant Desktop and optionally Full Disk Access
 
+See also [Developer Notes](#developer-notes) below.
+
 Grant Desktop access:
 
 Textinator works by monitoring the file system for new screenshots. The macOS security model prevents apps from accessing files and folders without the user's explicit permission. The first time you launch Textinator, you will be prompted to grant it access to your Desktop.
@@ -139,12 +141,21 @@ This project follows the [all-contributors](https://github.com/all-contributors/
 
 ## Developer Notes
 
-If you want to build Textinator yourself, here are some notes:
+If you want to work on Textinator yourself or contribute changes, here are some notes:
+
+Clone the repo and cd into the repo directory.
+
+`git clone git@github.com:RhetTbull/textinator.git`
+`cd textinator`
+
+If you want to contribute back to Textinator, fork the repo and clone your fork instead.
 
 Install requirements and development requirements via pip:
 
 `python3 -m pip install -r requirements.txt`
 `python3 -m pip install -r dev_requirements.txt`
+
+See also notes below about [Testing](#testing).
 
 Building the DMG for distribution requires [create-dmg](https://github.com/create-dmg/create-dmg) which can be installed with [homebrew](https://brew.sh/):
 
@@ -180,12 +191,12 @@ I've tried to document the code well so that you can use Textinator as a templat
 
 ## Testing
 
-Textinator uses [pytest](https://docs.pytest.org/en/7.1.x/) to run unit tests.  To run the tests, run `pytest` from the project root directory. Before running the tests, you'll need to install the development requirements via `python3 -m pip install -r dev_requirements.txt`. You will also need to enable your Terminal app to control your computer in `System Preferences > Security & Privacy > Privacy > Accessibility`. This is because the testing uses System Events scripting via applescript to simulate user actions such as clicking menu items.
+Textinator uses [pytest](https://docs.pytest.org/en/7.1.x/) to run unit tests.  To run the tests, run `pytest` from the project root directory. Before running the tests, you'll need to install the development requirements via `python3 -m pip install -r dev_requirements.txt`. You will also need to enable your Terminal app to control your computer in `System Preferences > Security & Privacy > Privacy > Accessibility`. This is because the testing uses System Events scripting via applescript to simulate user actions such as clicking menu items. Your Terminal will also need to be granted Full Disk Access in `System Preferences > Security & Privacy > Privacy > Full Disk Access`.
 
 The test suite requires the built app to be installed in `/Applications/Textinator.app`. Before running tests, uses `./build.sh` to build the app then copy `dist/Textinator.app` to `/Applications/Textinator.app`.
 
 The tests will modify the Textinator preferences but will backup your original preferences and restore them when testing is completed. The tests will also modify the clipboard and will create temporary files on the Desktop which will be cleaned up when testing is completed.
 
-The test suite is slow due to required sleeps to allow the app to respond, Spotlight to index new files, etc. (Takes approximately 5 minutes to run on my MacBook Pro). Because the test suite interacts with the user interface, it is best not to touch the keyboard or mouse while the tests are running.
+The test suite is slow due to required sleeps to allow the app to respond, Spotlight to index new files, etc. (Takes approximately 5 minutes to run on my MacBook Air). Because the test suite interacts with the user interface, it is best not to touch the keyboard or mouse while the tests are running.
 
 The Services menu item is not tested by the test suite so this feature should be tested manually.
