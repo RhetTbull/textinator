@@ -1,6 +1,6 @@
 # Textinator
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat)](#contributors)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 Simple macOS StatusBar / menu bar app to perform automatic text detection on screenshots.
@@ -127,7 +127,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <table>
   <tbody>
     <tr>
-      <td align="center"><a href="https://github.com/bwagner"><img src="https://avatars.githubusercontent.com/u/447049?v=4?s=75" width="75px;" alt="Bernhard Wagner"/><br /><sub><b>Bernhard Wagner</b></sub></a><br /><a href="#ideas-bwagner" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/RhetTbull/textinator/commits?author=bwagner" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/bwagner"><img src="https://avatars.githubusercontent.com/u/447049?v=4?s=75" width="75px;" alt="Bernhard Wagner"/><br /><sub><b>Bernhard Wagner</b></sub></a><br /><a href="#ideas-bwagner" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/RhetTbull/textinator/commits?author=bwagner" title="Code">💻</a> <a href="https://github.com/RhetTbull/textinator/commits?author=bwagner" title="Tests">⚠️</a></td>
     </tr>
   </tbody>
 </table>
