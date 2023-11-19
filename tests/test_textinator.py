@@ -135,14 +135,12 @@ def test_confidence(pb):
     pb.clear()
     with log_file() as log:
         assert click_menu_item("Text detection confidence threshold", "Medium")
-        sleep(5)
         assert "'confidence': 'MEDIUM'" in log.read()
         with copy_to_desktop(TEST_FILE_HELLO_WORLD) as filepath:
             mark_screenshot(filepath)
             sleep(5)
             assert pb.get_text() == "Hello World"
         assert click_menu_item("Text detection confidence threshold", "Low")
-        sleep(5)
         assert "'confidence': 'LOW'" in log.read()
 
 
@@ -178,7 +176,6 @@ def test_clear_clipboard(pb):
     """Test Clear clipboard menu item works"""
     pb.set_text("Hello World")
     assert click_menu_item("Clear clipboard")
-    sleep(5)
     assert pb.get_text() == ""
 
 
@@ -187,7 +184,6 @@ def test_confirm_clipboard_changes_yes(pb):
     pb.clear()
     with log_file() as log:
         assert click_menu_item("Confirm clipboard changes")
-        sleep(5)
         assert "'confirmation': 1" in log.read()
     with copy_to_desktop(TEST_FILE_HELLO_WORLD) as filepath:
         mark_screenshot(filepath)
@@ -203,7 +199,6 @@ def test_confirm_clipboard_changes_no(pb):
     pb.set_text("Nope")
     with log_file() as log:
         assert click_menu_item("Confirm clipboard changes")
-        sleep(5)
         assert "'confirmation': 1" in log.read()
     with copy_to_desktop(TEST_FILE_HELLO_WORLD) as filepath:
         mark_screenshot(filepath)
@@ -219,10 +214,8 @@ def test_enable_start_on_login():
     # setup_teardown() should have removed the login item if it existed
     assert "Textinator" not in list_login_items()
     assert click_menu_item("Start Textinator on login")
-    sleep(5)
     assert "Textinator" in list_login_items()
     assert click_menu_item("Start Textinator on login")
-    sleep(5)
     assert "Textinator" not in list_login_items()
 
 
@@ -236,6 +229,5 @@ def test_quit():
     """Test Quit menu item"""
     assert process_is_running("Textinator")
     assert click_menu_item("Quit Textinator")
-    sleep(5)
     assert not process_is_running("Textinator")
     os.system("open -a Textinator")

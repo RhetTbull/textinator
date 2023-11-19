@@ -56,7 +56,9 @@ def click_menu_item(menu_item: str, sub_menu_item: t.Optional[str] = None) -> bo
     """
     )
     sub_menu_item = sub_menu_item or kMissingValue
-    return scpt.call("click_menu_item", "Textinator", menu_item, sub_menu_item)
+    return_value = scpt.call("click_menu_item", "Textinator", menu_item, sub_menu_item)
+    time.sleep(5)
+    return return_value
 
 
 def click_window_button(window: int, button: int) -> bool:
