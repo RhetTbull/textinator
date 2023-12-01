@@ -59,7 +59,7 @@ def test_screenshot_no_notification(pb):
 
 def test_screenshot_append(pb):
     """Test screenshot detection with append"""
-    assert click_menu_item("Append to clipboard")
+    assert click_menu_item("Append to Clipboard")
     pb.clear()
     with copy_to_desktop(TEST_FILE_HELLO) as filepath:
         mark_screenshot(filepath)
@@ -69,26 +69,26 @@ def test_screenshot_append(pb):
             sleep(5)
             assert pb.get_text() == "Hello\nWorld"
     # turn append off
-    assert click_menu_item("Append to clipboard")
+    assert click_menu_item("Append to Clipboard")
 
 
 def test_screenshot_qrcode(pb):
     """Test screenshot detection with QR code"""
-    assert click_menu_item("Detect QR codes")
+    assert click_menu_item("Detect QR Codes")
     # set confidence to high because sometimes the QR code is detected as text
-    assert click_menu_item("Text detection confidence threshold", "High")
+    assert click_menu_item("Text Detection Confidence Threshold", "High")
     pb.clear()
     with copy_to_desktop(TEST_QRCODE) as filepath:
         mark_screenshot(filepath)
         sleep(5)
         assert pb.get_text() == "https://github.com/RhetTbull/textinator"
-    assert click_menu_item("Detect QR codes")
-    assert click_menu_item("Text detection confidence threshold", "Low")
+    assert click_menu_item("Detect QR Codes")
+    assert click_menu_item("Text Detection Confidence Threshold", "Low")
 
 
 def test_screenshot_qrcode_with_text(pb):
     """Test screenshot detection with QR code and text"""
-    assert click_menu_item("Detect QR codes")
+    assert click_menu_item("Detect QR Codes")
     pb.clear()
     with copy_to_desktop(TEST_QRCODE_WITH_TEXT) as filepath:
         mark_screenshot(filepath)
@@ -96,7 +96,7 @@ def test_screenshot_qrcode_with_text(pb):
         text = pb.get_text()
         assert "https://github.com/RhetTbull/textinator" in text
         assert "SCAN ME" in text
-    assert click_menu_item("Detect QR codes")
+    assert click_menu_item("Detect QR Codes")
 
 
 def test_screenshot_qrcode_with_text_no_detect(pb):
@@ -114,7 +114,7 @@ def test_pause(pb):
     """Test pause"""
     pb.clear()
     pb.set_text("Paused")
-    assert click_menu_item("Pause text detection")
+    assert click_menu_item("Pause Text Detection")
     with log_file() as log:
         with copy_to_desktop(TEST_FILE_HELLO_WORLD) as filepath:
             mark_screenshot(filepath)
@@ -134,13 +134,13 @@ def test_confidence(pb):
     """Test text detection confidence menu"""
     pb.clear()
     with log_file() as log:
-        assert click_menu_item("Text detection confidence threshold", "Medium")
+        assert click_menu_item("Text Detection Confidence Threshold", "Medium")
         assert "'confidence': 'MEDIUM'" in log.read()
         with copy_to_desktop(TEST_FILE_HELLO_WORLD) as filepath:
             mark_screenshot(filepath)
             sleep(5)
             assert pb.get_text() == "Hello World"
-        assert click_menu_item("Text detection confidence threshold", "Low")
+        assert click_menu_item("Text Detection Confidence Threshold", "Low")
         assert "'confidence': 'LOW'" in log.read()
 
 
@@ -163,27 +163,27 @@ def test_clipboard_text_and_image(pb):
 
 
 def test_clipboard_no_clipboard(pb):
-    """Test clipboard detection does not run when "Detect text in images on clipboard" is off"""
-    assert click_menu_item("Detect text in images on clipboard")
+    """Test clipboard detection does not run when "Detect Text in Images on Clipboard" is off"""
+    assert click_menu_item("Detect Text in Images on Clipboard")
     pb.clear()
     pb.set_image(TEST_FILE_HELLO_WORLD, "PNG")
     sleep(5)
     assert pb.get_text() == ""
-    assert click_menu_item("Detect text in images on clipboard")
+    assert click_menu_item("Detect Text in Images on Clipboard")
 
 
 def test_clear_clipboard(pb):
-    """Test Clear clipboard menu item works"""
+    """Test Clear Clipboard menu item works"""
     pb.set_text("Hello World")
-    assert click_menu_item("Clear clipboard")
+    assert click_menu_item("Clear Clipboard")
     assert pb.get_text() == ""
 
 
 def test_confirm_clipboard_changes_yes(pb):
-    """Test Confirm clipboard changes menu item works when pressing Yes"""
+    """Test Confirm Clipboard Changes menu item works when pressing Yes"""
     pb.clear()
     with log_file() as log:
-        assert click_menu_item("Confirm clipboard changes")
+        assert click_menu_item("Confirm Clipboard Changes")
         assert "'confirmation': 1" in log.read()
     with copy_to_desktop(TEST_FILE_HELLO_WORLD) as filepath:
         mark_screenshot(filepath)
@@ -191,14 +191,14 @@ def test_confirm_clipboard_changes_yes(pb):
         assert click_window_button(1, 2)  # button 1 is Yes
         sleep(5)
         assert pb.get_text() == "Hello World"
-    assert click_menu_item("Confirm clipboard changes")
+    assert click_menu_item("Confirm Clipboard Changes")
 
 
 def test_confirm_clipboard_changes_no(pb):
-    """Test Confirm clipboard changes menu item works when pressing No"""
+    """Test Confirm Clipboard Changes menu item works when pressing No"""
     pb.set_text("Nope")
     with log_file() as log:
-        assert click_menu_item("Confirm clipboard changes")
+        assert click_menu_item("Confirm Clipboard Changes")
         assert "'confirmation': 1" in log.read()
     with copy_to_desktop(TEST_FILE_HELLO_WORLD) as filepath:
         mark_screenshot(filepath)
@@ -206,16 +206,16 @@ def test_confirm_clipboard_changes_no(pb):
         assert click_window_button(1, 1)  # button 2 is "No"
         sleep(5)
         assert pb.get_text() == "Nope"
-    assert click_menu_item("Confirm clipboard changes")
+    assert click_menu_item("Confirm Clipboard Changes")
 
 
 def test_enable_start_on_login():
-    """Test Start Textinator on login menu item works"""
+    """Test Start Textinator on Login menu item works"""
     # setup_teardown() should have removed the login item if it existed
     assert "Textinator" not in list_login_items()
-    assert click_menu_item("Start Textinator on login")
+    assert click_menu_item("Start Textinator on Login")
     assert "Textinator" in list_login_items()
-    assert click_menu_item("Start Textinator on login")
+    assert click_menu_item("Start Textinator on Login")
     assert "Textinator" not in list_login_items()
 
 

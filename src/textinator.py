@@ -93,28 +93,28 @@ class Textinator(rumps.App):
         )
 
         # menus
-        self.confidence = rumps.MenuItem("Text detection confidence threshold")
+        self.confidence = rumps.MenuItem("Text Detection Confidence Threshold")
         self.confidence_low = rumps.MenuItem("Low", self.on_confidence)
         self.confidence_medium = rumps.MenuItem("Medium", self.on_confidence)
         self.confidence_high = rumps.MenuItem("High", self.on_confidence)
-        self.language = rumps.MenuItem("Text recognition language")
+        self.language = rumps.MenuItem("Text Recognition Language")
         for language in languages:
             self.language.add(rumps.MenuItem(language, self.on_language))
-        self.language_english = rumps.MenuItem("Always detect English", self.on_toggle)
+        self.language_english = rumps.MenuItem("Always Detect English", self.on_toggle)
         self.detect_clipboard = rumps.MenuItem(
-            "Detect text in images on clipboard", self.on_toggle
+            "Detect Text in Images on Clipboard", self.on_toggle
         )
-        self.qrcodes = rumps.MenuItem("Detect QR codes", self.on_toggle)
-        self.pause = rumps.MenuItem("Pause text detection", self.on_pause)
+        self.qrcodes = rumps.MenuItem("Detect QR Codes", self.on_toggle)
+        self.pause = rumps.MenuItem("Pause Text Detection", self.on_pause)
         self.show_notification = rumps.MenuItem("Notification", self.on_toggle)
-        self.linebreaks = rumps.MenuItem("Keep linebreaks", self.on_toggle)
-        self.append = rumps.MenuItem("Append to clipboard", self.on_toggle)
+        self.linebreaks = rumps.MenuItem("Keep Linebreaks", self.on_toggle)
+        self.append = rumps.MenuItem("Append to Clipboard", self.on_toggle)
         self.clear_clipboard = rumps.MenuItem(
-            "Clear clipboard", self.on_clear_clipboard
+            "Clear Clipboard", self.on_clear_clipboard
         )
-        self.confirmation = rumps.MenuItem("Confirm clipboard changes", self.on_toggle)
+        self.confirmation = rumps.MenuItem("Confirm Clipboard Changes", self.on_toggle)
         self.start_on_login = rumps.MenuItem(
-            f"Start {APP_NAME} on login", self.on_start_on_login
+            f"Start {APP_NAME} on Login", self.on_start_on_login
         )
         self.about = rumps.MenuItem(f"About {APP_NAME}", self.on_about)
         self.quit = rumps.MenuItem(f"Quit {APP_NAME}", self.on_quit)
@@ -264,7 +264,7 @@ class Textinator(rumps.App):
         if self._paused:
             self._paused = False
             self.icon = APP_ICON
-            sender.title = "Pause text detection"
+            sender.title = "Pause Text Detection"
         else:
             self._paused = True
             self.icon = APP_ICON_PAUSED
@@ -436,7 +436,7 @@ class Textinator(rumps.App):
         Returns:
             String of detected text or empty string if no text detected.
         """
-        # if "Always detect English" checked, add English to list of languages to detect
+        # if "Always Detect English" checked, add English to list of languages to detect
         languages = (
             [self.recognition_language, LANGUAGE_ENGLISH]
             if self.language_english.state
@@ -581,7 +581,7 @@ class ServiceProvider(NSObject):
     ) -> t.Optional[str]:
         """Detect text in an image on the clipboard.
 
-        This method will be called by the Services menu when the user selects "Detect text with Textinator".
+        This method will be called by the Services menu when the user selects "Detect Text With Textinator".
         It is specified in the setup.py NSMessage attribute. The method name in NSMessage is `detectTextInImage`
         but the actual Objective-C signature is `detectTextInImage:userData:error:` hence the matching underscores
         in the python method name.
