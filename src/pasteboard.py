@@ -71,7 +71,7 @@ class Pasteboard:
         self.set_text(new_text)
 
     def clear(self):
-        """Clear clipboard"""
+        """Clear Clipboard"""
         self.pasteboard.clearContents()
         self._change_count = self.pasteboard.changeCount()
 

@@ -45,7 +45,7 @@ PLIST = {
     # For more information on NSServices, see: https://developer.apple.com/documentation/bundleresources/information_property_list/nsservices?language=objc
     "NSServices": [
         {
-            "NSMenuItem": {"default": "Detect text with Textinator"},
+            "NSMenuItem": {"default": "Detect Text With Textinator"},
             "NSMessage": "detectTextInImage",
             "NSPortName": "Textinator",
             "NSUserData": "detectTextInImage",
