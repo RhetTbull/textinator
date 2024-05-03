@@ -41,7 +41,7 @@ The default location for new screenshots on your Mac is the Desktop folder so De
 
 Grant Full Disk Access:
 
-- Open System Preferences > Security & Privacy > Full Disk Access
+- Open System Settings...>Privacy & Security> Full Disk Access
 - Click the padlock if locked to unlock it and add Textinator to the list of allowed apps
 
 ![System Preferences > Security & Privacy](images/Full_Disk_Access.png)

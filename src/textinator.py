@@ -37,7 +37,7 @@ from macvision import (
     get_supported_vision_languages,
 )
 from pasteboard import TIFF, Pasteboard
-from utils import get_app_path, verify_desktop_access
+from utils import get_app_path, get_screenshot_location, verify_directory_access
 
 # do not manually change the version; use bump2version per the README
 __version__ = "0.9.3"
@@ -151,10 +151,10 @@ class Textinator(rumps.App):
         # track all screenshots already seen
         self._screenshots = {}
 
-        # Need to verify access to the Desktop folder which is the default location for screenshots
+        # Need to verify access to the screenshot folder; default is ~/Desktop
         # When this is called for the first time, the user will be prompted to grant access
         # and shown the message assigned to NSDesktopFolderUsageDescription in the Info.plist file
-        verify_desktop_access()
+        self.verify_screenshot_access()
 
         # initialize the service provider class which handles actions from the Services menu
         # pass reference to self so the service provider can access the app's methods and state
@@ -178,6 +178,25 @@ class Textinator(rumps.App):
         if self._debug:
             with self.open(LOG_FILE, "a") as f:
                 f.write(f"{datetime.datetime.now().isoformat()} - {msg}\n")
+
+    def verify_screenshot_access(self):
+        """Verify screenshot access and alert user if needed"""
+        if screenshot_location := get_screenshot_location():
+            if verify_directory_access(screenshot_location):
+                self.log(f"screenshot location access ok: {screenshot_location}")
+            else:
+                self.log(
+                    f"Error: could not access default screenshot location {screenshot_location}"
+                )
+                rumps.alert(
+                    f"Error: {APP_NAME} could not access the default screenshot location {screenshot_location} \n"
+                    f"You may need to enable Full Disk Access for {APP_NAME} in System Settings...>Privacy & Security> Full Disk Access"
+                )
+        else:
+            self.log(f"Error: could not determine default screenshot location")
+            rumps.alert(
+                f"Error: {APP_NAME} could not determine the default screenshot location. "
+            )
 
     def load_config(self):
         """Load config from plist file in Application Support folder.
@@ -421,9 +440,11 @@ class Textinator(rumps.App):
                 self.notification(
                     title="Processed Screenshot",
                     subtitle=f"{path}",
-                    message=f"Detected text: {detected_text}"
-                    if detected_text
-                    else "No text detected",
+                    message=(
+                        f"Detected text: {detected_text}"
+                        if detected_text
+                        else "No text detected"
+                    ),
                 )
 
     def process_image(self, image: Quartz.CIImage) -> str:
@@ -538,9 +559,11 @@ class Textinator(rumps.App):
                 self.notification(
                     title="Processed Clipboard Image",
                     subtitle="",
-                    message=f"Detected text: {detected_text}"
-                    if detected_text
-                    else "No text detected",
+                    message=(
+                        f"Detected text: {detected_text}"
+                        if detected_text
+                        else "No text detected"
+                    ),
                 )
         else:
             self.log("failed to get image data from pasteboard")
@@ -618,9 +641,11 @@ class ServiceProvider(NSObject):
                     self.app.notification(
                         title="Processed Image",
                         subtitle=f"{pb_url.path()}",
-                        message=f"Detected text: {detected_text}"
-                        if detected_text
-                        else "No text detected",
+                        message=(
+                            f"Detected text: {detected_text}"
+                            if detected_text
+                            else "No text detected"
+                        ),
                     )
         except Exception as e:
             return ErrorValue(e)
