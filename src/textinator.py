@@ -41,7 +41,7 @@ from pasteboard import TIFF, Pasteboard
 from utils import get_app_path, get_screenshot_location, verify_directory_access
 
 # do not manually change the version; use bump2version per the README
-__version__ = "0.9.3"
+__version__ = "0.10.0"
 
 APP_NAME = "Textinator"
 APP_ICON = "icon.png"
