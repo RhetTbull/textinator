@@ -209,6 +209,22 @@ def test_confirm_clipboard_changes_no(pb):
     assert click_menu_item("Confirm Clipboard Changes")
 
 
+
+def test_show_last_text_detection(pb):
+    """Test Show Last Text Detection menu item works"""
+    pb.clear()
+    with copy_to_desktop(TEST_FILE_HELLO_WORLD) as filepath:
+        mark_screenshot(filepath)
+        sleep(5)
+    with log_file() as log:
+        assert click_menu_item("Show Last Text Detection")
+        assert "Showing confirmation window" in log.read()
+        assert click_window_button(1, 2)  # button 1 is Yes
+        sleep(5)
+        assert pb.get_text() == "Hello World"
+    assert click_menu_item("Confirm Clipboard Changes")
+
+
 def test_enable_start_on_login():
     """Test Start Textinator on Login menu item works"""
     # setup_teardown() should have removed the login item if it existed

@@ -1,5 +1,6 @@
 """macOS specific utilities used by Textinator"""
 
+import os
 import platform
 from typing import Tuple
 
@@ -9,41 +10,53 @@ from Foundation import (
     NSBundle,
     NSDesktopDirectory,
     NSFileManager,
+    NSLog,
     NSUserDefaults,
     NSUserDomainMask,
 )
 
-__all__ = ["get_app_path", "get_mac_os_version", "verify_desktop_access"]
+__all__ = [
+    "get_app_path",
+    "get_mac_os_version",
+    "get_screenshot_location",
+    "verify_directory_access",
+    "verify_screenshot_access",
+]
 
 
-def verify_directory_access(directory_url):
+def verify_directory_access(path: str) -> str | None:
     """Verify that the app has access to the specified directory
 
     Args:
-        directory_url (NSURL): URL of the directory to check access for.
+        path: str path to the directory to verify access to.
 
-    Returns: True if access is granted, False otherwise.
+    Returns: path if access is verified, None otherwise.
     """
     with objc.autorelease_pool():
+        path_url = NSURL.fileURLWithPath_(path)
         (
             directory_files,
             error,
         ) = NSFileManager.defaultManager().contentsOfDirectoryAtURL_includingPropertiesForKeys_options_error_(
-            directory_url, [], 0, None
+            path_url, [], 0, None
         )
-        return not error
+        if error:
+            NSLog(f"verify_directory_access: {error.localizedDescription()}")
+            return None
+        return path
 
 
-def verify_desktop_access():
-    """Verify that the app has access to the user's screenshot location or Desktop
+def get_screenshot_location() -> str:
+    """Return path to the default location for screenshots
 
     First checks the custom screenshot location from com.apple.screencapture.
-    If not set or inaccessible, checks the Desktop.
+    If not set or inaccessible, assumes Desktop.
 
     If the App has NSDesktopFolderUsageDescription set in Info.plist,
-    user will be prompted to grant Desktop access the first time this is run.
+    user will be prompted to grant Desktop access the first time this is run
+    if the screenshot location is the Desktop.
 
-    Returns: True if access is granted, False otherwise.
+    Returns: str path to the screenshot location.
     """
     with objc.autorelease_pool():
         # Check for custom screenshot location
@@ -51,9 +64,7 @@ def verify_desktop_access():
             "com.apple.screencapture"
         )
         if custom_location := screencapture_defaults.stringForKey_("location"):
-            custom_location_url = NSURL.fileURLWithPath_(custom_location)
-            if verify_directory_access(custom_location_url):
-                return True
+            return os.path.expanduser(custom_location)
 
         # Fallback to Desktop if no custom location or if it's inaccessible
         (
@@ -62,7 +73,23 @@ def verify_desktop_access():
         ) = NSFileManager.defaultManager().URLForDirectory_inDomain_appropriateForURL_create_error_(
             NSDesktopDirectory, NSUserDomainMask, None, False, None
         )
-        return False if error else verify_directory_access(desktop_url)
+        return str(desktop_url.path()) if not error else os.path.expanduser("~/Desktop")
+
+
+def verify_screenshot_access() -> str | None:
+    """Verify that the app has access to the user's screenshot location or Desktop
+
+    First checks the custom screenshot location from com.apple.screencapture.
+    If not set or inaccessible, checks the Desktop.
+
+    If the App has NSDesktopFolderUsageDescription set in Info.plist,
+    user will be prompted to grant Desktop access the first time this is run.
+
+    Returns: path to screenshot location if access otherwise None
+    """
+    with objc.autorelease_pool():
+        screenshot_location = get_screenshot_location()
+        return verify_directory_access(screenshot_location)
 
 
 def get_mac_os_version() -> Tuple[str, str, str]:
