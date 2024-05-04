@@ -82,6 +82,9 @@ class Textinator(rumps.App):
         # py2app will place the icon in the app bundle Resources folder
         self.icon = APP_ICON
 
+        # ensure icon matches menu bar dark/light state
+        self.template = True
+
         # the log method uses NSLog to log to the unified log
         self.log("started")
 
