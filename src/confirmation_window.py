@@ -79,7 +79,7 @@ class ConfirmationWindow(NSObject):
             self.text_view.setString_(text)
             self.window.makeKeyAndOrderFront_(None)
             self.window.setIsVisible_(True)
-            self.window.setLevel_(AppKit.NSFloatingWindowLevel)
+            self.window.setLevel_(AppKit.NSFloatingWindowLevel + 1)
             self.window.setReleasedWhenClosed_(False)
             self.window.makeFirstResponder_(self.button_copy)
             return self.window
