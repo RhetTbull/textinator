@@ -29,6 +29,7 @@ from Foundation import (
     NSUTF8StringEncoding,
 )
 
+from confirmation_window import ConfirmationWindow
 from loginitems import add_login_item, list_login_items, remove_login_item
 from macvision import (
     ciimage_from_file,
@@ -165,6 +166,9 @@ class Textinator(rumps.App):
         # Create a Pasteboard instance which will be used by clipboard_watcher() to detect changes
         # to the pasteboard (which everyone but Apple calls the clipboard)
         self.pasteboard = Pasteboard()
+
+        # will hold ConfirmationWindow if needed
+        self.confirmation_window = None
 
         # start the spotlight query
         self.start_query()
@@ -493,13 +497,10 @@ class Textinator(rumps.App):
             if self.confirmation.state:
                 # display confirmation dialog
                 verb = "Append" if self.append.state else "Copy"
-                if rumps.alert(
-                    title=f"{verb} detected text to clipboard?",
-                    message=text,
-                    ok="Yes",
-                    cancel="No",
-                ):
-                    self.pasteboard.copy(clipboard_text)
+                self.confirmation_window = (
+                    self.confirmation_window or ConfirmationWindow.alloc().init()
+                )
+                self.confirmation_window.show(text, self)
             else:
                 self.pasteboard.copy(clipboard_text)
 

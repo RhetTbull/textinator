@@ -16,6 +16,8 @@ APP = ["src/textinator.py"]
 # Include additional python modules here; probably not the best way to do this
 # but I couldn't figure out how else to get py2app to include modules in the src/ folder
 DATA_FILES = [
+    "src/appkitgui.py",
+    "src/confirmation_window.py",
     "src/icon.png",
     "src/icon_paused.png",
     "src/loginitems.py",
@@ -35,10 +37,13 @@ PLIST = {
     # CFBundleVersion is the build version (here we use the same value as the short version)
     "CFBundleVersion": __version__,
     # NSDesktopFolderUsageDescription is the message that appears when the app asks for permission to access the Desktop folder
+    # Likewise for NSDocumentsFolderUsageDescription and NSDownloadsFolderUsageDescription
     "NSDesktopFolderUsageDescription": "Textinator needs access to your Desktop folder to detect new screenshots. "
     "If you have changed the default location for screenshots, "
     "you will also need to grant Textinator full disk access in "
     "System Preferences > Security & Privacy > Privacy > Full Disk Access.",
+    "NSDocumentsFolderUsageDescription": "Textinator needs access to your Documents folder to detect new screenshots. ",
+    "NSDownloadsFolderUsageDescription": "Textinator needs access to your Downloads folder to detect new screenshots. ",
     # NSAppleEventsUsageDescription is the message that appears when the app asks for permission to send Apple events
     "NSAppleEventsUsageDescription": "Textinator needs permission to send AppleScript events to add itself to Login Items.",
     # NSServices is a list of services that the app provides that will appear in the Services menu
