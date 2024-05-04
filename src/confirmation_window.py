@@ -55,10 +55,12 @@ class ConfirmationWindow(NSObject):
         gui.constrain_to_parent_width(self.text_view, edge_inset=EDGE_INSET)
         self.hstack = gui.hstack(align=AppKit.NSLayoutAttributeCenterY)
         self.main_view.append(self.hstack)
+        self.button_cancel = gui.button("Cancel", self, self.buttonCancel_)
         self.button_copy = gui.button(
             "Copy to clipboard", self, self.buttonCopyToClipboard_
         )
-        self.button_cancel = gui.button("Cancel", self, self.buttonCancel_)
+        self.button_copy.setKeyEquivalent_("\r")  # Return key
+        self.button_copy.setKeyEquivalentModifierMask_(0)  # No modifier keys
         self.hstack.extend([self.button_cancel, self.button_copy])
         gui.constrain_trailing_anchor_to_parent(self.hstack, edge_inset=EDGE_INSET)
 
@@ -73,15 +75,18 @@ class ConfirmationWindow(NSObject):
         self.log = app.log
 
         with objc.autorelease_pool():
+            self.log(f"Showing confirmation window with text: {text}")
             self.text_view.setString_(text)
             self.window.makeKeyAndOrderFront_(None)
             self.window.setIsVisible_(True)
             self.window.setLevel_(AppKit.NSNormalWindowLevel)
             self.window.setReleasedWhenClosed_(False)
+            self.window.makeFirstResponder_(self.button_copy)
             return self.window
 
     def buttonCancel_(self, sender):
         """Cancel button action"""
+        self.log("Cancel button clicked, closing window without copying text")
         self.window.close()
 
     def buttonCopyToClipboard_(self, sender):

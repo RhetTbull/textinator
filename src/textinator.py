@@ -114,6 +114,9 @@ class Textinator(rumps.App):
             "Clear Clipboard", self.on_clear_clipboard
         )
         self.confirmation = rumps.MenuItem("Confirm Clipboard Changes", self.on_toggle)
+        self.show_last_detetection = rumps.MenuItem(
+            "Show Last Text Detection", self.on_show_last_detection
+        )
         self.start_on_login = rumps.MenuItem(
             f"Start {APP_NAME} on Login", self.on_start_on_login
         )
@@ -137,6 +140,7 @@ class Textinator(rumps.App):
             self.append,
             self.clear_clipboard,
             self.confirmation,
+            self.show_last_detetection,
             None,
             self.start_on_login,
             self.about,
@@ -169,6 +173,9 @@ class Textinator(rumps.App):
 
         # will hold ConfirmationWindow if needed
         self.confirmation_window = None
+
+        # last detected text is stored
+        self.last_detected_text = None
 
         # start the spotlight query
         self.start_query()
@@ -307,6 +314,13 @@ class Textinator(rumps.App):
         self.clear_confidence_state()
         sender.state = True
         self.save_config()
+
+    def on_show_last_detection(self, sender):
+        """Show last detected text"""
+        self.confirmation_window = (
+            self.confirmation_window or ConfirmationWindow.alloc().init()
+        )
+        self.confirmation_window.show(self.last_detected_text or "", self)
 
     def clear_confidence_state(self):
         """Clear confidence menu state"""
@@ -486,6 +500,8 @@ class Textinator(rumps.App):
         if text:
             if not self.linebreaks.state:
                 text = text.replace("\n", " ")
+            self.last_detected_text = text
+
             if self.append.state:
                 clipboard_text = (
                     self.pasteboard.paste() if self.pasteboard.has_text() else ""
